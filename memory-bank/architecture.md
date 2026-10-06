@@ -65,3 +65,20 @@
 - `data/staged/m0_frozen_v1/` 是验收后的本地数据快照；`artifacts/m0_lora_v1/` 保存训练轨迹、模块枚举、完整状态 checkpoint 与重载结果。
 
 训练 effective batch = 1 × 8 × 1 = 8。基础权重 BF16，LoRA 与 AdamW 状态 FP32，rank 8、alpha 16、dropout 0，学习率 1e-4 线性降至零。checkpoint 包含适配器、优化器、调度器、步数、三类 RNG、确定性样本游标、配置和输入指纹；`latest` 指向完成保存的目录。本轮保持第 10 步和第 20 步两份有效 checkpoint。
+
+## M1：证据、计算与固定流程
+
+保留前述 M0 演进记录；当前新增链路为：可见证据 → SQLite FTS5/BM25 → 数值跨度抽取 → 模型选择事实及运算 → 受控执行 → 带引用的结果记录。
+
+- `src/evidence/models.py`：保存 Evidence、Fact 及原文位置；业务事实必须具备已核验的指标、单位、期间和口径，数值须与引用原文一致。候选事实不能直接用于业务计算。
+- `src/tools/calculator.py`：28 位 Decimal、HALF_EVEN，按白名单执行业务计算；转换数值尺度，拒绝不兼容口径及零分母，负基数增长改报差额并解释。
+- `src/tools/benchmark_tools.py`：为表格单元格/文本数值登记事实编号和字符位置，仅允许引用事实、先前结果和有限常量。FinQA 基准语义单独处理，不套用业务增长规则。
+- `src/evaluation/vendor/finqa_execution.py` / `FinQA_LICENSE`：固定 revision 的官方执行评分函数及 MIT 许可；通过上述预算受限包装调用，未引入任意代码执行。
+- `src/retrieval/bm25.py`：仅接受可见证据字段，拒绝 gold 混入；FTS5 索引提供 CPU BM25 查询。
+- `src/model/financial.py`：共享原生 `calculate` 工具声明、证据提示和推理解析。完整输入超预算、截断、非法参数均计失败，不默默裁剪。
+- `src/evaluation/m1_baseline.py`：冻结 40 个不同开发报告任务，记录初版 JSON 接口对照及独立检索指标。
+- `src/evaluation/financial_run.py`：在相同任务上比较直接回答、给定证据工具计算、检索后工具计算；保存逐题输出、耗时、显存和来源选择。
+- `src/evaluation/validate_financial_run.py`：独立核对任务完整性、评分与 gold 一致性，并逐条解析计算引用到原始字符跨度。
+- `tests/test_calculator.py`、`test_benchmark_tools.py`、`test_financial_model.py`：分别覆盖业务口径、基准运算/引用和原生工具边界。
+
+两套计算契约不可混用：数据集抽取的数值跨度不是已经核验单位和口径的业务 Fact。引用可回查只证明原文数值存在，不自动证明模型选对了指标/期间。当前固定流程尚不具备动态 Agent、持久化任务恢复或生产服务能力。
