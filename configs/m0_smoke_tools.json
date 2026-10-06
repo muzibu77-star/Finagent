@@ -1,0 +1,54 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "search_documents",
+      "description": "Search the allowed financial filings for passages relevant to a question.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {"type": "string", "description": "What to look for."},
+          "company": {"type": "string", "description": "Company name or ticker."},
+          "period": {"type": "string", "description": "Fiscal period, for example FY2023."}
+        },
+        "required": ["query", "company", "period"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "calculate_metric",
+      "description": "Run one controlled arithmetic operation on numeric operands. growth_rate takes [base, current] and returns (current - base) / base.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": ["sum", "subtract", "multiply", "divide", "growth_rate"]
+          },
+          "operands": {
+            "type": "array",
+            "items": {"type": "number"},
+            "description": "Operands in order."
+          }
+        },
+        "required": ["operation", "operands"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "ask_user",
+      "description": "Ask the user for a missing condition such as the company or the fiscal period.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "question": {"type": "string", "description": "The clarification question."}
+        },
+        "required": ["question"]
+      }
+    }
+  }
+]

@@ -1,0 +1,6 @@
+# Installed into .venv, which is created with --system-site-packages and reuses
+# the base environment's torch 2.11.0+cu128 / torchvision 0.26.0+cu128.
+transformers==5.18.0
+peft==0.21.2
+accelerate==1.15.0
+bitsandbytes==0.50.2

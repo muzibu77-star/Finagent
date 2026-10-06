@@ -1,0 +1,40 @@
+# M0 step 1: fixed text-inference configuration for the feasibility check.
+# Values are probe settings for this step, not a validated production recipe.
+
+model:
+  repo_id: Qwen/Qwen3.5-9B
+  revision: c202236235762e1c871ad0ccb60c8ee5ba337b9a
+  path: /test/Finagent/models/Qwen3.5-9B/c202236235762e1c871ad0ccb60c8ee5ba337b9a
+  device: cuda:0
+
+# quantization: null (plain BF16 weights), 8bit, or 4bit (bitsandbytes NF4,
+# BF16 compute). Each variant runs in its own process so peak memory is clean.
+variants:
+  bf16:
+    quantization: null
+  int8:
+    quantization: 8bit
+  int4:
+    quantization: 4bit
+
+generation:
+  # Greedy decoding so BF16 and quantized outputs are comparable and repeatable.
+  # This deviates from the model card's sampling advice (temperature 0.7,
+  # top_p 0.8, top_k 20 in non-thinking mode) and is recorded with every run.
+  enable_thinking: false
+  do_sample: false
+  max_input_tokens: 4096
+  max_new_tokens: 512
+
+run:
+  seed: 0
+  repeats: 3
+  # Synthetic prompts of these lengths measure memory and latency growth.
+  # 8192 is deliberately above max_input_tokens to locate the boundary.
+  budget_probe_input_tokens: [1024, 2048, 4096, 8192]
+  budget_probe_new_tokens: 64
+
+paths:
+  tasks: configs/m0_smoke_tasks.jsonl
+  tools: configs/m0_smoke_tools.json
+  output_dir: /test/Finagent/artifacts/m0_step1

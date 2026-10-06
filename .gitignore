@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+/Qwen3.5-9B/
+/artifacts/
+/checkpoints/
+/data/
+.env
+.env.*
+!.env.example
