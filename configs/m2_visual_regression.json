@@ -1,0 +1,5 @@
+[
+  {"id":"visual_revenue","lines":["Metric         2022    2023","Revenue        120     150","Net income      18      24"],"question":"What is Revenue in 2023? Reply with the number only.","answer":"150"},
+  {"id":"visual_year","lines":["Year           2021    2022","Operating cash  341     287","Cash balance     64      51"],"question":"What is Operating cash in 2021? Reply with the number only.","answer":"341"},
+  {"id":"visual_unit","lines":["Amounts in millions","Metric          Value","Total assets     2048","Total debt        512"],"question":"What is Total debt in millions? Reply with the number only.","answer":"512"}
+]

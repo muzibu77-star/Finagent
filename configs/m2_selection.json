@@ -1,0 +1,9 @@
+{
+  "primary_condition": "calculator",
+  "requires_general_regression_non_decrease": true,
+  "requires_visual_regression_non_decrease": true,
+  "requires_paired_exact_mcnemar_p_below": 0.05,
+  "max_primary_latency_ratio_to_base": 2.0,
+  "otherwise": "retain base",
+  "scope": "40 source-isolated development reports; small pilot, not broad financial capability"
+}

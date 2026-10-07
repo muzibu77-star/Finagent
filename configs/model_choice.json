@@ -1,0 +1,6 @@
+{
+  "stage": "M2",
+  "selected": "action",
+  "adapter": "artifacts/m2_action_v2/step_0040",
+  "evidence": "artifacts/m2_provenance/decision.json"
+}

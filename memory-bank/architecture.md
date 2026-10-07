@@ -82,3 +82,16 @@
 - `tests/test_calculator.py`、`test_benchmark_tools.py`、`test_financial_model.py`：分别覆盖业务口径、基准运算/引用和原生工具边界。
 
 两套计算契约不可混用：数据集抽取的数值跨度不是已经核验单位和口径的业务 Fact。引用可回查只证明原文数值存在，不自动证明模型选对了指标/期间。当前固定流程尚不具备动态 Agent、持久化任务恢复或生产服务能力。
+
+## M2：配对监督、恢复与采用门槛
+
+- `src/training/prepare_sft.py`：最多转换 500 条允许训练的参考程序；拒绝不唯一数值绑定、未支持操作和完整轨迹超预算。保存动作、实际工具观察、两种 assistant mask 和全部排除原因。
+- `configs/m2_{answer,action}_training.json`：固定同一组 94 个问题、40 次更新及 2048 上限，绑定准备样本哈希。`src/training/m0_lora_check.py` 复用已有训练/恢复路径，并验证准备样本只含允许训练 ID；原 M0 分支保持原行为。
+- `src/training/loss.py`：保留完整上下文和 BF16 输出投影，只对未屏蔽的因果目标计算 FP32 交叉熵；不截断证据、不删除前缀梯度路径。`verify_loss.py` 对照实际模型损失及输出层传入解码器的梯度，并单列原实现自身的运行波动。
+- `src/evaluation/regression.py` / `configs/m2_visual_regression.json`：冻结通用工具与三个合成页面探针；检查适配器回归，不能作为真实财报视觉质量证明。
+- `src/evaluation/select_adapter.py` / `configs/m2_selection.json`：统一应用配对质量、能力回归和时延门槛；未通过时保留基座。选择是小规模开发决策，不是完整基准或生产质量保证。
+- `src/evidence/identity.py` / `src/evaluation/audit_citations.py`：仅在报告及完整结构化原文均相同时承认证据 ID 别名；新审计不覆盖历史生成或数值成绩。
+- `tests/test_prepare_sft.py`、`test_training_loss.py`、`test_evidence_identity.py`：验证程序拒绝条件、loss/梯度等价和别名边界。
+- `data/staged/m2_sft_v1/` 保存本地监督数据；`artifacts/m2_{action_v2,answer_v1}/` 保存 checkpoint；`artifacts/m2_provenance/` 保存源码快照、实际训练 token 暴露量及选择依据。失败动作试跑和未通过的等价性记录继续保留。
+
+M2 采用决定入口为 `configs/model_choice.json`：后续使用动作 LoRA，基座权重和其他适配器不覆盖。独立来源别名审计为引用支持的有效口径；旧 `correct_evidence` 字段仅表示 ID 精确匹配，不再解释为来源真实性。

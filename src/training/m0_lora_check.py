@@ -15,6 +15,8 @@ import yaml
 from peft import LoraConfig, PeftModel, get_peft_model
 from transformers import AutoModelForMultimodalLM, AutoTokenizer
 
+from src.training.loss import assistant_loss
+
 LOG = logging.getLogger(__name__)
 
 
@@ -37,6 +39,28 @@ def prepare_samples(config: dict, tokenizer) -> tuple[list[dict], dict]:
     evidence = {r['evidence_id']: r for r in read_jsonl(root / 'evidence.jsonl')}
     questions = {r['task_id']: r for r in read_jsonl(root / 'questions.jsonl')}
     gold = {r['task_id']: r for r in read_jsonl(root / 'gold.jsonl')}
+    if 'prepared_samples' in config:
+        prepared = Path(config['prepared_samples'])
+        if hashlib.sha256(prepared.read_bytes()).hexdigest() != config['samples_sha256']:
+            raise ValueError('prepared supervision changed')
+        samples = json.loads(prepared.read_text())
+        allowed = {r['task_id'] for r in manifest if r['original_split'] == 'train'
+                   and r['official_eligible']}
+        ids = [sample['task_id'] for sample in samples]
+        if len(ids) != len(set(ids)) or not set(ids) <= allowed:
+            raise ValueError('supervision contains duplicate or held-out tasks')
+        for sample in samples:
+            tokens, labels = sample['input_ids'], sample['labels']
+            if (not tokens or len(tokens) != len(labels)
+                    or len(tokens) > config['max_sequence_length']
+                    or not any(label != -100 for label in labels)
+                    or any(label not in (-100, token) for token, label in zip(tokens, labels))):
+                raise ValueError('invalid prepared token/mask contract')
+        if len(samples) != config['samples']:
+            raise ValueError('prepared sample count mismatch')
+        return samples, {'selected': len(samples),
+                         'max_tokens': max(len(s['input_ids']) for s in samples),
+                         'prepared_samples': str(prepared)}
     candidates = [r for r in manifest if r['original_split'] == 'train'
                   and r['official_eligible'] and gold[r['task_id']]['labels_available']]
     random.Random(config['seed']).shuffle(candidates)
@@ -142,12 +166,17 @@ def main() -> int:
         return {'input_ids': ids, 'attention_mask': torch.ones_like(ids),
                 'labels': torch.tensor([sample['labels']], device=device)}
 
+    def compute_loss(index: int):
+        inputs = batch(index)
+        return (assistant_loss(model, inputs) if config.get('selective_fp32_loss', False)
+                else model(**inputs).loss)
+
     if args.verify_only:
         if state is None:
             raise ValueError('--verify-only requires --resume')
         model.eval()
         with torch.inference_mode():
-            loss = float(model(**batch(0)).loss)
+            loss = float(compute_loss(0))
         if abs(loss - state['reference_loss']) > 1e-5:
             raise RuntimeError('reload loss mismatch')
         if not optimizer.state or scheduler.last_epoch != step:
@@ -166,7 +195,7 @@ def main() -> int:
         optimizer.zero_grad(set_to_none=True)
         losses = []
         for micro in range(config['gradient_accumulation']):
-            loss = model(**batch(step * config['gradient_accumulation'] + micro)).loss
+            loss = compute_loss(step * config['gradient_accumulation'] + micro)
             if not torch.isfinite(loss):
                 raise RuntimeError('nonfinite loss')
             (loss / config['gradient_accumulation']).backward()
@@ -188,7 +217,7 @@ def main() -> int:
         raise RuntimeError('adapter parameters did not change')
     model.eval()
     with torch.inference_mode():
-        reference_loss = float(model(**batch(0)).loss)
+        reference_loss = float(compute_loss(0))
     checkpoint = output / f'step_{step:04d}'
     checkpoint.mkdir(exist_ok=False)
     model.save_pretrained(checkpoint)
