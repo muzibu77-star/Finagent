@@ -132,3 +132,14 @@ M2 采用决定入口为 `configs/model_choice.json`：后续使用动作 LoRA�
 - `src/evaluation/validate_visual_run.py` 从原始生成重新评分，并核对输入哈希、配对完整性；`tests/test_numeric_score.py` 覆盖百分比、单位换算与严格标量解析。
 
 有效英文输入为 `data/staged/m5_visual_v3/`，中文输入为 `m5_chinese_v1/`；前两版英文准备失败的拒绝说明保留。gold 与可见材料物理分开；运行前源码/依赖在 `artifacts/m5_provenance/`。本阶段是局部页面验证，未微调视觉参数，未实现或声称区域定位、完整文档理解或中文自主 Agent。
+
+
+## M6：本地服务与可复查展示
+
+- `src/service/server.py` 提供回环地址 HTTP API 和一个持久化队列 worker；模型、检索索引在所属线程创建/释放。默认使用 `FixedRunner`；报告库模式复用 M4 的范围过滤。SQLite 绑定资料哈希、快照和流程，换资料拒绝误用旧数据库。
+- `src/service/index.html` 定义中文页面；`app.js` 管理稳定请求 ID、事件游标、刷新恢复、澄清新修订、取消、来源查看和报告导出；`style.css` 提供桌面/移动布局。所有资料文本使用安全文本节点显示，不能执行原文脚本。
+- `tests/test_service.py` 验证 HTTP 契约、来源权限、报告版本和数据库快照；`src/evaluation/browser_smoke.py` 在真实 Chromium 上测试交互，使用合成状态夹具，不假冒模型质量测试。
+- `configs/m6_demo.json` 固定已知来源的展示题与追问；`src/evaluation/deployment_smoke.py` 在新进程加载实际模型，通过 HTTP 验证计算、取消、导出和崩溃后恢复，只终止自身启动的服务进程。
+- `README.md` 仅提供项目文档导航；`requirements-dev.txt` 是可选浏览器测试依赖，运行恢复、入口和外部资产边界集中在 [environment.md](environment.md)。
+
+默认入口 `.venv/bin/python -m src.service.server` → loopback API → SQLite 请求/队列 → 单 GPU 固定流程 → 原子报告/事件 → 网页和 JSON 导出。报告保留原始计算尺度，不能把基准比例自动显示为已核验百分比。网页状态来自实际事件；等待澄清、取消或失败都不显示为已回答。动态 Agent 与 M5 视觉仍为离线实验入口。

@@ -1,0 +1,11 @@
+{
+  "snapshot_id": "m3-frozen-v1",
+  "company": "ANSS",
+  "period": "2012",
+  "question": "for the year ended december 312012 what was the percent of the revenue by geographic area that was from the united states",
+  "expected": 0.33262,
+  "followup": "And what was that United States share of geographic revenue in 2011?",
+  "followup_expected": 0.31228,
+  "source": "finqa:test:ANSS/2012/page_93.pdf-1",
+  "purpose": "Illustrative known-source deployment demo, not a new independent accuracy estimate. Original question selected from the frozen acceptance set."
+}

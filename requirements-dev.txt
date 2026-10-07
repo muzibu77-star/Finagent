@@ -1,0 +1,2 @@
+# Optional real-browser acceptance; not required by the serving worker.
+playwright==1.63.0
