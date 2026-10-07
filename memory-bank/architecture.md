@@ -121,3 +121,14 @@ M2 采用决定入口为 `configs/model_choice.json`：后续使用动作 LoRA�
 - `tests/test_report_corpus.py` 覆盖版本替换、未知日期、资料哈希、未来 IDF 隔离及完整固定流程的截止引用；真实披露回放与合成修订测试分开保存。
 
 披露日期采用包含当日的日粒度；入库日期不能代替披露日期。年度报告章节无可核实发布时间时仍可用于非严格查询，但不能进入严格 PIT 上下文。原文资料仅本地研究使用，Git 记录来源及哈希，不重新分发 PDF。
+
+
+## M5：原页多模态与独立中文验证
+
+- `src/data/prepare_visual.py` 从官方 TAT-DQA 测试档案连接 PDF、OCR、区域标注与来源分组，固定 12 个允许留出来源。公开 PNG 是缩略图，实际输入由原 PDF 按 OCR 页面尺度渲染；保存图像/PDF 哈希和原页关联，不能把裁选 PDF 页号冒充原财报页号。
+- `configs/m5_protocol.json` 冻结输入/输出预算、像素上限、三路对照及控制实验；`m5_label_audit.json` 保留推理前发现的原标签单位问题，主成绩不改原 gold，原文复核成绩单列。
+- `src/evaluation/visual_run.py` 执行文本、视觉、按需结合及遮挡/基础单位控制，记录视觉 token、原始输出、耗时和显存；`numeric_score.py` 只实现固定标量子集的 TAT 数值/尺度语义，不声称完整官方 F1。
+- `configs/m5_chinese_tasks.json` 与 `src/data/prepare_chinese.py` 绑定中国移动原文数字、指标、单位与页码，用既有 Decimal 业务工具产生参考计算；`chinese_run.py` 单列数值、单位和格式错误。
+- `src/evaluation/validate_visual_run.py` 从原始生成重新评分，并核对输入哈希、配对完整性；`tests/test_numeric_score.py` 覆盖百分比、单位换算与严格标量解析。
+
+有效英文输入为 `data/staged/m5_visual_v3/`，中文输入为 `m5_chinese_v1/`；前两版英文准备失败的拒绝说明保留。gold 与可见材料物理分开；运行前源码/依赖在 `artifacts/m5_provenance/`。本阶段是局部页面验证，未微调视觉参数，未实现或声称区域定位、完整文档理解或中文自主 Agent。

@@ -1,0 +1,13 @@
+{
+  "protocol": "Frozen before model inference; original released labels unchanged; supplementary source-unit score only.",
+  "overrides": {
+    "720e234d5d8c898464ab864a2f524fff": {
+      "scale": "thousand",
+      "source_report_id": "tat:kemet-corporation_2019.pdf",
+      "image_sha256": "c5e4507df9740ccea21fa6706a3378a49ed998cad847bb6ae8d1e990aae3221b",
+      "printed_page": 51,
+      "basis": "Film and Electrolytic table explicitly states amounts in thousands, except percentages; 2017 net sales cell is 182,228. Released gold says million.",
+      "ambiguity": "Question omits segment; page also contains Solid Capacitors net sales. Supplementary score follows released block mapping, not every plausible interpretation."
+    }
+  }
+}

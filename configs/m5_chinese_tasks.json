@@ -1,0 +1,23 @@
+{
+  "source_id": "chinamobile2023_release",
+  "pdf_page": 1,
+  "published_at": "2024-03-21",
+  "review": "Agent checked original rendered Chinese PDF against extracted text. Not translated English benchmark questions; not an independent human annotation campaign.",
+  "facts": {
+    "revenue_2022": {"raw":"9,372.59","metric":"营运收入","period":"2022","unit":"currency","currency":"CNY","scale":"100000000"},
+    "revenue_2023": {"raw":"10,093.09","metric":"营运收入","period":"2023","unit":"currency","currency":"CNY","scale":"100000000"},
+    "ebitda_2023": {"raw":"3,414.78","metric":"EBITDA","period":"2023","unit":"currency","currency":"CNY","scale":"100000000"},
+    "eps_2023": {"raw":"6.16","metric":"每股基本盈利","period":"2023","unit":"currency_per_share","currency":"CNY","scale":"1"},
+    "dividend_2023": {"raw":"4.83","metric":"每股股息","period":"2023","unit":"currency_per_share","currency":"HKD","scale":"1"}
+  },
+  "tasks": [
+    {"id":"zh01","question":"中国移动2023年营运收入是多少人民币亿元？","operation":"sum","facts":["revenue_2023"],"display_divisor":"100000000","unit":"人民币亿元","decimals":2},
+    {"id":"zh02","question":"请把中国移动2023年营运收入换算为人民币百万元。","operation":"sum","facts":["revenue_2023"],"display_divisor":"1000000","unit":"人民币百万元","decimals":0},
+    {"id":"zh03","question":"中国移动2023年每股基本盈利是多少人民币元每股？","operation":"sum","facts":["eps_2023"],"display_divisor":"1","unit":"人民币元/股","decimals":2},
+    {"id":"zh04","question":"中国移动2023年全年每股股息是多少港元每股？","operation":"sum","facts":["dividend_2023"],"display_divisor":"1","unit":"港元/股","decimals":2},
+    {"id":"zh05","question":"中国移动2023年EBITDA是多少人民币亿元？","operation":"sum","facts":["ebitda_2023"],"display_divisor":"100000000","unit":"人民币亿元","decimals":2},
+    {"id":"zh06","question":"请读取比较列：中国移动2022年营运收入是多少人民币亿元？","operation":"sum","facts":["revenue_2022"],"display_divisor":"100000000","unit":"人民币亿元","decimals":2},
+    {"id":"zh07","question":"用表中未取整的营运收入计算2023年较2022年的增长率，按百分数保留两位小数。","operation":"growth_rate","facts":["revenue_2022","revenue_2023"],"display_divisor":"0.01","unit":"%","decimals":2},
+    {"id":"zh08","question":"2023年营运收入比2022年增加多少人民币亿元？保留两位小数。","operation":"difference","facts":["revenue_2022","revenue_2023"],"display_divisor":"100000000","unit":"人民币亿元","decimals":2}
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "input_root": "data/staged/m5_visual_v3",
+  "adapter": "artifacts/m2_action_v2/step_0040",
+  "max_input_tokens": 8192,
+  "max_output_tokens": 256,
+  "max_pixels": 1048576,
+  "hybrid_visual_threshold": 16,
+  "routing": "Use OCR plus image if any OCR block has at least 16 numeric tokens; otherwise OCR. Fixed before model outputs; not a learned confidence score.",
+  "controls": "First three tasks: full image tensor occlusion, expected abstention. First three monetary spans: request base-unit conversion. Multiple nearby years are preserved on all original pages.",
+  "score": "Scalar numeric EM with TAT-QA scale/rounding semantics, plus separate scale accuracy. Not full official text/multi-span F1; no region localization score."
+}
