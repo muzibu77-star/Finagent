@@ -110,3 +110,14 @@ M2 采用决定入口为 `configs/model_choice.json`：后续使用动作 LoRA�
 任务输入 → 持久化队列 → 单模型循环 → 受范围约束的工具 → 原子报告。执行状态与业务状态分别保存；`awaiting_input` 没有最终报告。当前模型仍操作 FinQA 数值候选，不等同于已核验财务口径的业务 Fact。运行源码快照和记录位于 `artifacts/m3_acceptance_run_v1/`，故障证据在 `artifacts/m3_fault_v1/`。
 
 当前默认采用 `FixedRunner`，动态 `Runner` 仅供实验。`tests/test_fixed_runner.py` 覆盖固定流程提交、澄清、取消和生成后恢复；`tests/test_model_lock.py` 用另一工作目录的子进程验证全局锁。任务与报告绑定资料哈希及请求范围，恢复时拒绝同名快照下的资料变化。阶段质量与采用依据仅在 [result.md](result.md) 维护。
+
+
+## M4：原始 PDF、检索和披露约束
+
+- `configs/report_sources.json` 固定发行人 URL、文件 SHA、披露日期、入库时间、报告期间及版本关系；`src/data/reports.py` 按 PDFium 原始页提取文本，空页报错，不静默遗漏。合法资料在 `data/staged/reports_v2/`，快照标识为 `reports-v1`；旧错误目录保留拒绝说明。
+- `src/data/report_corpus.py` 将日期、版本和快照约束应用到检索与读取；缺少核实披露日期的资料不参与严格截止查询。取数仍经过 M3 的范围、缓存、状态和报告约束。
+- `src/retrieval/report_index.py` 提供中文双字词/英文词 BM25、稀疏 TF-IDF 融合及词面重排；截止范围内单独建立统计，未来文本不能通过 IDF 影响过去排名。这不是神经向量模型。
+- `configs/m4_retrieval_tasks.json` 固定 12 个查询及页面相关标签；`retrieval_run.py` 比较排名与成本，`retrieval_answers.py` 固定模型核验生成引用，`pit_run.py` 检查实际披露边界。采用入口为 `configs/report_retrieval_choice.json`。
+- `tests/test_report_corpus.py` 覆盖版本替换、未知日期、资料哈希、未来 IDF 隔离及完整固定流程的截止引用；真实披露回放与合成修订测试分开保存。
+
+披露日期采用包含当日的日粒度；入库日期不能代替披露日期。年度报告章节无可核实发布时间时仍可用于非严格查询，但不能进入严格 PIT 上下文。原文资料仅本地研究使用，Git 记录来源及哈希，不重新分发 PDF。

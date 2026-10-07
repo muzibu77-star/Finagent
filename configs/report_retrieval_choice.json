@@ -1,0 +1,6 @@
+{
+  "mode": "rerank",
+  "corpus_sha256": "9d7d251065697ebe8c69b4cb37c0ea0f367dcbfe236e5127f0c67d38394088dd",
+  "evidence": "artifacts/m4_retrieval_v2/summary.json",
+  "scope": "One-issuer development comparison; sparse lexical retrieval only."
+}

@@ -1,0 +1,18 @@
+{
+  "protocol": "Frozen 12-query development comparison over all 17 original PDF pages; manually checked page-level relevance. Sparse TF-IDF fusion and lexical reranking only; no neural embedding claims.",
+  "retention": "Retain a candidate only if MRR and nDCG@5 improve, Recall@5 does not decrease, and median query latency is below 50ms; otherwise BM25.",
+  "tasks": [
+    {"id":"r01","question":"2022年全年派息率和每股末期股息是多少？","relevant":["chinamobile2022_release:p2"]},
+    {"id":"r02","question":"2022年移动云收入及同比增长情况？","relevant":["chinamobile2022_release:p3"]},
+    {"id":"r03","question":"2022年5G网络投资和累计开通基站数量？","relevant":["chinamobile2022_release:p4"]},
+    {"id":"r04","question":"2022年物联网卡客户数和2021年比较？","relevant":["chinamobile2022_release:p1"]},
+    {"id":"r05","question":"2023年全年派息率和末期股息？","relevant":["chinamobile2023_release:p2"]},
+    {"id":"r06","question":"2023年移动云收入增长率？","relevant":["chinamobile2023_release:p3","chinamobile2023_release:p4"]},
+    {"id":"r07","question":"2024年预计资本开支及下降幅度？","relevant":["chinamobile2023_release:p4"]},
+    {"id":"r08","question":"2023年物联网卡客户数和2022年比较？","relevant":["chinamobile2023_release:p1"]},
+    {"id":"r09","question":"2023年合併資產負債表總資產和現金及現金等價物？","relevant":["cm2023_balance:p1"]},
+    {"id":"r10","question":"2023年總負債和歸屬於本公司股東權益？","relevant":["cm2023_balance:p2"]},
+    {"id":"r11","question":"2023年經營業務現金流入淨額是多少？","relevant":["cm2023_cashflow:p1"]},
+    {"id":"r12","question":"2023年每股盈利基本和攤薄值？","relevant":["cm2023_income:p1"]}
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "company": "CHL",
+  "snapshot_id": "reports-v1",
+  "sources": [
+    {
+      "id": "chinamobile2022_release",
+      "path": "data/raw/reports/chinamobile2022_release.pdf",
+      "url": "https://www.chinamobileltd.com/sc/media/press/p230323.pdf",
+      "ingested_at": "2026-10-07T03:55:57.921509+00:00",
+      "sha256": "9c697d46aa72ea1ffd83f01c4ca98cd1cde728cf21aa08a8c0acbec4d57ddcca",
+      "published_at": "2023-03-23",
+      "report_period": "2022",
+      "first_printed_page": 1,
+      "version": "9c697d46aa72ea1ffd83f01c4ca98cd1cde728cf21aa08a8c0acbec4d57ddcca",
+      "supersedes": null,
+      "publication_basis": "Dated press release on PDF page 1",
+      "rights": "Issuer disclosure; local research, source attribution; no redistribution of PDF assets"
+    },
+    {
+      "id": "chinamobile2023_release",
+      "path": "data/raw/reports/chinamobile2023_release.pdf",
+      "url": "https://www.chinamobileltd.com/sc/media/press/p240321.pdf",
+      "ingested_at": "2026-10-07T03:55:57.387362+00:00",
+      "sha256": "76dd4599e410432aed8309a0c7dc12039bed64463d34ac51542c23b081c2140c",
+      "published_at": "2024-03-21",
+      "report_period": "2023",
+      "first_printed_page": 1,
+      "version": "76dd4599e410432aed8309a0c7dc12039bed64463d34ac51542c23b081c2140c",
+      "supersedes": null,
+      "publication_basis": "Dated press release on PDF page 1",
+      "rights": "Issuer disclosure; local research, source attribution; no redistribution of PDF assets"
+    },
+    {
+      "id": "cm2023_income",
+      "path": "data/raw/reports/cm2023_income.pdf",
+      "url": "https://www.chinamobileltd.com/tc/ir/reports/ar2023/C13.pdf",
+      "ingested_at": "2026-10-07T03:57:00.883983+00:00",
+      "sha256": "82967361e6f37f9e083db15346cef6ae9ab323c1b58b64fdd4965b73078e2f7c",
+      "published_at": null,
+      "report_period": "2023",
+      "first_printed_page": 87,
+      "version": "82967361e6f37f9e083db15346cef6ae9ab323c1b58b64fdd4965b73078e2f7c",
+      "supersedes": null,
+      "publication_basis": "Not verified; board approval is not publication date",
+      "rights": "Issuer disclosure; local research, source attribution; no redistribution of PDF assets"
+    },
+    {
+      "id": "cm2023_balance",
+      "path": "data/raw/reports/cm2023_balance.pdf",
+      "url": "https://www.chinamobileltd.com/tc/ir/reports/ar2023/C14.pdf",
+      "ingested_at": "2026-10-07T03:57:02.707746+00:00",
+      "sha256": "892e028391d8a0b447ba98107b3f03e2e88ec27d03524079b575dc7eb935fac7",
+      "published_at": null,
+      "report_period": "2023",
+      "first_printed_page": 88,
+      "version": "892e028391d8a0b447ba98107b3f03e2e88ec27d03524079b575dc7eb935fac7",
+      "supersedes": null,
+      "publication_basis": "Not verified; board approval is not publication date",
+      "rights": "Issuer disclosure; local research, source attribution; no redistribution of PDF assets"
+    },
+    {
+      "id": "cm2023_cashflow",
+      "path": "data/raw/reports/cm2023_cashflow.pdf",
+      "url": "https://www.chinamobileltd.com/tc/ir/reports/ar2023/C16.pdf",
+      "ingested_at": "2026-10-07T03:57:03.459965+00:00",
+      "sha256": "6ef1d7da451e54d65edc13a047a95de28d2708742af213c9c9573be9363a26ba",
+      "published_at": null,
+      "report_period": "2023",
+      "first_printed_page": 91,
+      "version": "6ef1d7da451e54d65edc13a047a95de28d2708742af213c9c9573be9363a26ba",
+      "supersedes": null,
+      "publication_basis": "Not verified; board approval is not publication date",
+      "rights": "Issuer disclosure; local research, source attribution; no redistribution of PDF assets"
+    }
+  ]
+}
