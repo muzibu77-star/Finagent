@@ -41,7 +41,13 @@ def messages_for(evidence: dict, question: str, condition: str) -> tuple[list[di
 def predict(model, tokenizer, evidence: dict, question: str, condition: str, config: dict) -> dict:
     messages, facts = messages_for(evidence, question, condition)
     record = generate(model, tokenizer, messages, TOOLS if condition != 'direct' else None,
-        config['generation'], 512, 4096, config['model']['device'])
+        config['generation'], config['generation'].get('max_new_tokens', 512),
+        config['generation'].get('max_input_tokens', 4096), config['model']['device'])
+    return decode_prediction(record, facts, condition)
+
+
+def decode_prediction(record: dict, facts: dict, condition: str) -> dict:
+    """Validate and execute a generated answer without invoking the model again."""
     if 'error' in record:
         return record
     try:

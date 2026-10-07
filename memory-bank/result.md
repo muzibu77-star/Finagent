@@ -173,3 +173,30 @@ timeout 600 .venv/bin/python -m src.training.m0_lora_check --output-dir artifact
 按 `configs/m2_selection.json` 选择 **动作适配器**，路径 `artifacts/m2_action_v2/step_0040`；`configs/model_choice.json` 是后续入口。答案组虽有更高直接回答/检索数值成绩，但未通过通用工具回归门槛，不采用。保留全部基座、答案组和失败实验，暂不扩展到 2000—5000 条；94 条小规模训练尚不足以证明生产可靠性。
 
 实际 320 个 micro batch：动作组输入 576446 token/监督 22706，答案组输入 410649/监督 4249；监督 token 量不同，不能把全部差异归因于动作表示本身。M2 相关 54 项 CPU 回归、编译与 diff 检查通过；另有尚未完成真实验收的 M3 基础测试。只提交本地阶段结果，不推送。
+
+## 2026-10-06｜M3 冻结协议与真实故障验收
+
+独立任务在调优前冻结：30 个 FinQA 单题、20 个同公司跨报告任务、15 个来源隔离 ConvFinQA 会话、15 个缺失条件/资料不足控制，共 80 个任务、115 轮。输入与 gold 分离，检索库 1152 项；完整哈希见 `configs/m3_acceptance_lock.json`。不得用该验收集调参后仍称其独立。
+
+`python -m src.evaluation.fault_smoke --adapter artifacts/m2_action_v2/step_0040 --output-dir artifacts/m3_fault_v1` 通过 8 项：进程互斥、真实生成取消、实际 CUDA OOM 不提交报告、OOM 后健康检查、文档无法扩张取证范围、故障后真实推理、模型显存释放、提交后子进程崩溃不重复报告。取消响应 0.858 秒；这是执行不变量验收，不是金融答案正确率。
+
+业务命令：`timeout 3600 .venv/bin/python -m src.evaluation.agent_run --adapter artifacts/m2_action_v2/step_0040 --output-dir artifacts/m3_acceptance_run_v1`。逐轮结果和 SQLite 事件实时保存，日志 `/tmp/finagent-m3-acceptance.log`；异常退出后用原命令加 `--resume` 恢复，已消耗调用和原截止时间不重置。配置为每轮最多 10 次模型调用、180 秒、8192 输入/512 输出 token；真实业务尚在运行，结果另行追加。
+
+## 2026-10-07｜M3 独立业务验收与恢复记录
+
+`artifacts/m3_acceptance_run_v1/` 完成全部 80 项、115 轮；`validate_agent_run` 独立核对 41 份唯一报告、65 个原文数值引用及逐轮评分通过。这里的审计通过不等于业务答案全部正确。
+
+| 类别 | 整项通过 | 补充 |
+| --- | --- | --- |
+| 单题计算 | 5/30 | 同适配器、同检索资料的固定流程为 18/30 |
+| 跨证据 | 1/20 | 要求全部计算与来源匹配 |
+| 多轮会话 | 0/15 | 单轮正确且来源支持 17/50，不能据此称会话通过 |
+| 条件缺失/资料不足 | 15/15 | 范围守卫可不调用模型；澄清不生成最终报告 |
+
+动态流程实际发起 756 次生成，755 次返回，观察到 40151 个输出 token、3615.538 秒生成耗时；中断调用的输出未知，保留预算消耗，不记为免费调用。失败包括输入超预算 20 轮、调用预算耗尽 43 轮、原截止时间耗尽 1 轮。固定对照 30 次生成共 1683 个输出 token、143.037 秒。重复检索、非法提交格式及指标选择错误均保留原始事件，不在验收集上调参。
+
+首进程达到 3600 秒上限退出；续跑坚持使用 `source/` 中的原源码。归档漏存 `configs/m0_inference.yaml` 导致恢复启动失败，未调用模型；核实配置与原 HEAD 完全相同后补存，哈希与说明在 `resume_config_recovery.json`。实际续跑命令在 `artifacts/m3_acceptance_run_v1/source` 执行：`timeout 1800 /root/Finagent/.venv/bin/python -m src.evaluation.agent_run --adapter artifacts/m2_action_v2/step_0040 --output-dir artifacts/m3_acceptance_run_v1 --resume`。原始截止时间、调用数和中断事件均未重置。
+
+按原计划“无收益时保留基线”，默认交付改用固定取证计算流程；动态 Agent 保留为实验入口。新增的跨工作目录 GPU 锁、任务资料哈希绑定和固定流程恢复不改变这次冻结实验的模型提示或评分。M3 所属 81 项 CPU 回归通过；真实故障复验另记。
+
+最终源码真实故障复验：`timeout 600 .venv/bin/python -m src.evaluation.fault_smoke --adapter artifacts/m2_action_v2/step_0040 --output-dir artifacts/m3_fault_v2`，8/8 通过，真实生成取消 0.851 秒，OOM 后健康检查、再次推理及显存释放通过。原始日志已保存各实验目录。M3 工程与验证工作完成，金融质量限制如上，不宣称生产可用。

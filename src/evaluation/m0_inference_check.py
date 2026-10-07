@@ -183,6 +183,7 @@ def generate(
     max_new_tokens: int,
     max_input_tokens: int | None,
     device: str,
+    stop_requested=None,
 ) -> dict[str, Any]:
     """Run one generation and return its text, token counts, latency and memory.
 
@@ -204,6 +205,16 @@ def generate(
         record["error"] = "input_over_budget"
         return record
 
+    controls = {}
+    if stop_requested is not None:
+        from transformers import StoppingCriteria, StoppingCriteriaList
+
+        class ExternalStop(StoppingCriteria):
+            def __call__(self, input_ids, scores, **kwargs):
+                return torch.full((input_ids.shape[0],), bool(stop_requested()),
+                                  device=input_ids.device, dtype=torch.bool)
+
+        controls['stopping_criteria'] = StoppingCriteriaList([ExternalStop()])
     encoded = encoded.to(device)
     stop_ids = [tokenizer.eos_token_id, tokenizer.pad_token_id]
     torch.cuda.reset_peak_memory_stats(device)
@@ -217,9 +228,12 @@ def generate(
                 do_sample=generation["do_sample"],
                 eos_token_id=stop_ids,
                 pad_token_id=tokenizer.pad_token_id,
+                **controls,
             )
     except RuntimeError as exc:  # includes torch.OutOfMemoryError
         record["error"] = f"{type(exc).__name__}: {exc}"[:500]
+        record["latency_s"] = round(time.perf_counter() - started, 3)
+        record["output_tokens_unknown"] = True
         record.update(memory_mib(device))
         torch.cuda.empty_cache()
         return record

@@ -95,3 +95,18 @@
 - `data/staged/m2_sft_v1/` 保存本地监督数据；`artifacts/m2_{action_v2,answer_v1}/` 保存 checkpoint；`artifacts/m2_provenance/` 保存源码快照、实际训练 token 暴露量及选择依据。失败动作试跑和未通过的等价性记录继续保留。
 
 M2 采用决定入口为 `configs/model_choice.json`：后续使用动作 LoRA，基座权重和其他适配器不覆盖。独立来源别名审计为引用支持的有效口径；旧 `correct_evidence` 字段仅表示 ID 精确匹配，不再解释为来源真实性。
+
+## M3：单 Agent 与持久化执行
+
+- `src/harness/store.py`：SQLite 原子保存请求摘要、任务修订、事件、报告和 TTL 缓存；同一请求重试不重复提交，输入改变必须使用新请求。公司、期间、截止日或快照变化时清空旧事实与历史。
+- `src/data/corpus.py`：按公司、报告期间和快照限定资料；同报告且结构化原文完全相同的证据仅索引一次。当前基准资料缺乏核实的披露日期，拒绝严格 PIT 查询。
+- `src/agent/runner.py`：动态检索、读取、计算、澄清和提交循环；先持久化预算，再调用模型，取消/失败也计调用成本。澄清真实挂起，报告只允许引用当前范围内已执行的计算。
+- `src/agent/fixed_runner.py`：默认固定取证计算流程，共用持久化状态、范围过滤和取消；每轮一次模型生成，保存生成结果后可恢复确定性提交。`src/model/financial.decode_prediction()` 复用原有解析与受控执行，不重复调用模型。
+- `src/model/agent.py`：模型生命周期与跨工作目录的单卡进程互斥（`/tmp/finagent-cuda0.lock`），生成取消传至停止条件；OOM 后须健康检查，关闭时释放资源。`m0_inference_check.generate()` 增加可选停止回调，旧调用默认行为不变。
+- `src/evaluation/freeze_acceptance.py` / `configs/m3_acceptance_lock.json`：冻结 80 个任务、115 轮及来源隔离协议，gold 与检索库分开。
+- `src/evaluation/agent_run.py`：执行冻结业务验收，按轮保存恢复游标；30 个单题另跑同适配器固定流程对照。`validate_agent_run.py` 独立检查完整性、原文引用、数值和报告唯一性。
+- `src/evaluation/fault_smoke.py`：实际 GPU 取消、OOM、恢复后推理与进程崩溃验收；`tests/test_store.py`、`test_runner.py` 覆盖状态和工具拒绝边界。
+
+任务输入 → 持久化队列 → 单模型循环 → 受范围约束的工具 → 原子报告。执行状态与业务状态分别保存；`awaiting_input` 没有最终报告。当前模型仍操作 FinQA 数值候选，不等同于已核验财务口径的业务 Fact。运行源码快照和记录位于 `artifacts/m3_acceptance_run_v1/`，故障证据在 `artifacts/m3_fault_v1/`。
+
+当前默认采用 `FixedRunner`，动态 `Runner` 仅供实验。`tests/test_fixed_runner.py` 覆盖固定流程提交、澄清、取消和生成后恢复；`tests/test_model_lock.py` 用另一工作目录的子进程验证全局锁。任务与报告绑定资料哈希及请求范围，恢复时拒绝同名快照下的资料变化。阶段质量与采用依据仅在 [result.md](result.md) 维护。
