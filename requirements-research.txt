@@ -1,0 +1,5 @@
+-r requirements.txt
+qdrant-client==1.15.1
+mcp==1.26.0
+scipy==1.17.1
+pandas==3.0.1

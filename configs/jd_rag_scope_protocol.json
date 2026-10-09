@@ -1,0 +1,11 @@
+{
+  "candidate": "Company and report year supplied in the frozen query, applied before lexical/dense retrieval and reranking using ReportCorpus.allowed",
+  "control": "Full-corpus retrieval with the identical CPU models, precision, threads, index and query",
+  "generation": "Base Qwen3.5-9B via the same vLLM server, 8192 input / 256 output, 5 complete chunks, Unicode JSON, four workers",
+  "development_selection": "For each scope choose highest labeled development EM, then F1, then supported citations; ties prefer bm25, dense, hybrid, cross_encoder in that order",
+  "development_gate": "Paired report-cluster EM difference CI95 lower > 0; F1 and supported citation rate non-decrease. Development intervals are exploratory after route selection.",
+  "test": "Freeze both selected routes before generating test answers; run and independently audit all four modes for both scopes. Report the frozen head-to-head comparison and all negative results.",
+  "test_acceptance": "Frozen selected candidate must have paired EM CI95 lower > 0, F1 non-decrease and supported citation rate non-decrease; no further tuning from test results",
+  "interval": "2000 report-cluster bootstrap resamples, seed 103",
+  "limits": "The parent frozen test has already been exposed in earlier research. This is a controlled follow-up, not a newly blind test. Scope filtering uses no page relevance or answer labels. CPU timing is separate from the earlier GPU retrieval timing."
+}

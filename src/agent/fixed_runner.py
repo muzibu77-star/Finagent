@@ -9,9 +9,11 @@ from src.model.financial import TOOLS, decode_prediction, messages_for
 
 
 class FixedRunner:
-    def __init__(self, store: Store, corpus, model, seconds: float = 180):
+    def __init__(self, store: Store, corpus, model, seconds: float = 180,
+                 *, unicode_context: bool = False):
         self.store, self.corpus, self.model = store, corpus, model
         self.seconds = seconds
+        self.unicode_context = unicode_context
 
     def run(self, task_id: str) -> dict:
         if not self.store.claim(task_id):
@@ -33,7 +35,8 @@ class FixedRunner:
             question = payload['question']
             if state.get('history') or state.get('original_question'):
                 question = json.dumps({'question': question, 'history': state.get('history', []),
-                                       'original_question': state.get('original_question')})
+                                       'original_question': state.get('original_question')},
+                                      ensure_ascii=not self.unicode_context)
             hits = ([{'evidence_id': state['selected_evidence_id']}]
                     if state.get('selected_evidence_id') else self.corpus.search(question, allowed))
             self.store.save(task_id, revision, state, 'tool_observation',
@@ -49,6 +52,12 @@ class FixedRunner:
             document = self.corpus.read(key, allowed)
             state['selected_evidence_id'] = key
             messages, facts = messages_for(document['evidence'], question, 'calculator')
+            if self.unicode_context:
+                messages[0]['content'] += (
+                    ' For a single-value lookup, use multiply with the listed fact ID '
+                    'and const_1. const is not a valid operation.')
+                messages[-1]['content'] = json.dumps(
+                    json.loads(messages[-1]['content']), ensure_ascii=False)
             state['read'] = {key: list(facts)}
             self.store.save(task_id, revision, state, 'tool_observation',
                             {'tool': 'get_evidence', 'arguments': {'evidence_id': key}})

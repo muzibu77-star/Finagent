@@ -2,5 +2,7 @@
   "stage": "M2",
   "selected": "action",
   "adapter": "artifacts/m2_action_v2/step_0040",
-  "evidence": "artifacts/m2_provenance/decision.json"
+  "evidence": "artifacts/m2_provenance/decision.json",
+  "calculator_adapter": "artifacts/jd_resume_20261008/full_context/step_0196",
+  "calculator_evidence": "artifacts/jd_resume_20261008/calculation_route_test.json"
 }

@@ -9,12 +9,18 @@ import sqlite3
 
 from src.evaluation.vendor.finqa_execution import eval_program
 from src.evidence.identity import evidence_identity
+from src.model.financial import decode_prediction
 from src.tools.benchmark_tools import extract_numeric_facts
 
 
 def audit(run: Path) -> dict:
-    root = Path('data/staged/m3_acceptance_v1')
-    lock = json.loads(Path('configs/m3_acceptance_lock.json').read_text())
+    settings = json.loads((run / 'settings.json').read_text())
+    root = Path(settings.get('tasks_root', 'data/staged/m3_acceptance_v1'))
+    lock_path = (root / 'lock.json' if settings.get('tasks_root') else
+                 Path('configs/m3_acceptance_lock.json'))
+    lock = json.loads(lock_path.read_text())
+    if settings['lock'] != lock:
+        raise ValueError('agent run does not match its frozen input lock')
     for name, digest in lock['sha256'].items():
         assert hashlib.sha256((root / f'{name}.json').read_bytes()).hexdigest() == digest
     tasks = json.loads((root / 'tasks.json').read_text())
@@ -83,6 +89,44 @@ def audit(run: Path) -> dict:
         rows = [t['result'] for t in turns if t['task_id'] == record['task_id']]
         assert record['turns'] == rows
         assert record['all_turns_passed'] == all(row['passed'] for row in rows)
+        if settings.get('tasks_root'):
+            fixed = record.get('fixed')
+            if task_map[record['task_id']]['category'] != 'calculation':
+                assert fixed is None
+                continue
+            assert fixed is not None
+            selected = fixed.get('selected_evidence')
+            if selected is None:
+                assert fixed.get('error') and not fixed['correct'] and not fixed['source_supported']
+                continue
+            document = corpus[selected]
+            task = task_map[record['task_id']]
+            periods = task['period'] if isinstance(task['period'], list) else [task['period']]
+            assert document['company'] == task['company'] and document['period'] in periods
+            target = corpus[gold[record['task_id']]['evidence_ids'][0][0]]
+            assert fixed['source_supported'] == (
+                evidence_identity(document['evidence'], document['source_report_id']) ==
+                evidence_identity(target['evidence'], target['source_report_id']))
+            raw = {key: fixed[key] for key in ('text', 'stopped_on_eos') if key in fixed}
+            if 'text' not in raw and fixed.get('error'):
+                raw['error'] = fixed['error']
+            decoded = decode_prediction(raw, extract_numeric_facts(document['evidence']), 'calculator')
+            correct = ('error' not in decoded and decoded.get('prediction') ==
+                       gold[record['task_id']]['expected'][0][0])
+            assert fixed['correct'] == correct
+            if 'error' not in decoded:
+                assert decoded['calculation'] == fixed['calculation']
+    if settings.get('tasks_root'):
+        controls = [r['fixed'] for r in records if r.get('fixed') is not None]
+        assert summary['fixed_30_calculation_tasks'] == {
+            'total': len(controls), 'correct_with_source': sum(
+                row['correct'] and row['source_supported'] for row in controls)}
+    categories = {task['category'] for task in tasks}
+    assert set(summary['categories']) == categories
+    for category in categories:
+        selected = [r for r in records if task_map[r['task_id']]['category'] == category]
+        assert summary['categories'][category] == {
+            'passed': sum(r['all_turns_passed'] for r in selected), 'total': len(selected)}
     failures = Counter(json.loads(body).get('error', kind) for kind, body in db.execute(
         "SELECT kind,body FROM events WHERE kind IN ('failed','cancelled','interrupted')"))
     started_calls = db.execute("SELECT count(*) FROM events WHERE kind='generation_started'").fetchone()[0]
@@ -93,10 +137,37 @@ def audit(run: Path) -> dict:
             'reserved_output_tokens': started_calls * 512,
             'observed_output_tokens': sum(r.get('new_tokens', 0) for r in generated),
             'observed_generation_seconds': sum(r.get('latency_s', 0) for r in generated)}
+    prompt_tokens = sorted(r['prompt_tokens'] for r in generated if 'prompt_tokens' in r)
+    observed, repeated = Counter(), Counter()
+    seen = set()
+    for task_id, revision, body in db.execute(
+            "SELECT task_id,revision,body FROM events WHERE kind='tool_observation' ORDER BY seq"):
+        event = json.loads(body)
+        name, arguments = event['tool'], event['arguments']
+        if name in ('search_documents', 'get_evidence'):
+            observed[name] += 1
+            value = (' '.join(arguments['query'].casefold().split()) if name == 'search_documents'
+                     else arguments['evidence_id'])
+            key = (task_id, revision, name, value)
+            repeated[name] += key in seen
+            seen.add(key)
+        if name == 'submit_report' and 'error' in event['observation']:
+            observed['invalid_submission'] += 1
+    context = {'input_over_budget': sum(r.get('error') == 'input_over_budget' for r in generated),
+               'prompt_tokens_count': len(prompt_tokens),
+               'prompt_tokens_max': max(prompt_tokens, default=0),
+               'prompt_tokens_p50': prompt_tokens[len(prompt_tokens) // 2] if prompt_tokens else None,
+               'prompt_tokens_p95': prompt_tokens[int(.95 * (len(prompt_tokens) - 1))] if prompt_tokens else None,
+               'tool_calls': dict(observed), 'repeated_calls_within_revision': dict(repeated),
+               'rejected_generations': db.execute(
+                   "SELECT count(*) FROM events WHERE kind='tool_rejected'").fetchone()[0]}
     db.close()
     result = {'passed': True, 'tasks': len(records), 'turns': len(turns),
+              'records_sha256': hashlib.sha256((run / 'records.jsonl').read_bytes()).hexdigest(),
+              'turns_sha256': hashlib.sha256((run / 'turns.jsonl').read_bytes()).hexdigest(),
               'reports': len(reports), 'scalar_references_checked': facts_checked,
               'states': dict(state_counts), 'failures': dict(failures), 'cost': cost,
+              'context': context,
               'meaning': 'Artifact and runtime invariants only; business failures remain failures.'}
     (run / 'validation.json').write_text(json.dumps(result, indent=2))
     return result

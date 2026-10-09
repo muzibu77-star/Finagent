@@ -43,9 +43,11 @@ SYSTEM = (
 
 
 class Runner:
-    def __init__(self, store: Store, corpus, model, max_calls: int = 10, seconds: float = 180):
+    def __init__(self, store: Store, corpus, model, max_calls: int = 10, seconds: float = 180,
+                 context_management: bool = False):
         self.store, self.corpus, self.model = store, corpus, model
         self.max_calls, self.seconds = max_calls, seconds
+        self.context_management = context_management
 
     def run(self, task_id: str) -> dict:
         if not self.store.claim(task_id):
@@ -84,6 +86,10 @@ class Runner:
                 if time.monotonic() >= deadline:
                     raise TimeoutError('task time budget exceeded')
                 state['attempts'] += 1
+                if self.context_management:
+                    from src.agent.context import context_messages
+                    state['calls_remaining'] = self.max_calls - state['attempts'] + 1
+                    state['messages'] = context_messages(state, payload, self.corpus, SYSTEM)
                 self.store.save(task_id, revision, state, 'generation_started',
                     {'attempt': state['attempts'], 'reserved_output_tokens': 512})
                 row = self.model(state['messages'], TOOLS,
@@ -102,6 +108,9 @@ class Runner:
                     raise RuntimeError(row['error'])
                 calls, errors = parse_tool_calls(row.get('text', ''), SCHEMAS)
                 if not row.get('stopped_on_eos') or errors or len(calls) != 1:
+                    if self.context_management:
+                        state['context_result'] = {'error': 'Return exactly one complete tool call',
+                                                   'details': errors}
                     state['messages'].extend([
                         {'role': 'assistant', 'content': row.get('text', '')},
                         {'role': 'user', 'content': 'Return exactly one complete valid tool call.'}])
@@ -115,6 +124,10 @@ class Runner:
                     observation = self.execute(call['name'], call['arguments'], state, payload, allowed)
                 except (ValueError, KeyError, TypeError, ArithmeticError) as exc:
                     observation = {'error': f'{type(exc).__name__}: {exc}'}
+                if self.context_management:
+                    state['context_result'] = (observation if call['name'] != 'get_evidence'
+                        else {'read': call['arguments'].get('evidence_id'),
+                              **({'error': observation['error']} if 'error' in observation else {})})
                 if call['name'] == 'ask_user' and 'error' not in observation:
                     self.store.save(task_id, revision, state, 'clarification', observation)
                     self.store.stop(task_id, revision, 'succeeded', 'awaiting_input', observation)
@@ -141,10 +154,17 @@ class Runner:
                      'snapshot': self.corpus.fingerprint, 'retrieval_mode': getattr(self.corpus, 'mode', 'bm25'),
                      **{k: payload.get(k) for k in ('company', 'period', 'as_of', 'snapshot_id')}}
         if name == 'search_documents':
+            query_key = ' '.join(args['query'].casefold().split())
+            if self.context_management and query_key in state.setdefault('searches', {}):
+                return {**state['searches'][query_key], 'duplicate_search': True}
             cached = self.store.cached(cache_key)
             if cached is not None:
+                if self.context_management:
+                    state['searches'][query_key] = {'query': args['query'], **cached}
                 return {**cached, 'cache_replay': True}
             result = {'hits': self.corpus.search(args['query'], allowed)}
+            if self.context_management:
+                state['searches'][query_key] = {'query': args['query'], **result}
             self.store.cached(cache_key, result)
             return result
         if name == 'get_evidence':

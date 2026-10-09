@@ -1,0 +1,13 @@
+{
+  "reference_model": "historical_action",
+  "baseline": "Existing independently audited full benchmark outputs for the same split",
+  "candidate": "Append one explicit JSON field contract to the existing TAT-QA system prompt; no parser or scorer relaxation",
+  "suffix": " The JSON object must contain exactly the two keys answer and scale. Do not emit reasoning or any other keys, including unit, metric, period, or question_period. Use those attributes only to determine the answer and scale.",
+  "split_membership": "All official_filtered_v1 TAT-QA inputs: development 222; test 1639, of which 1621 labeled",
+  "budget": {"max_input_tokens": 8192, "max_output_tokens": 256, "workers": 4},
+  "generation": "Same historical_action adapter, vLLM BF16 base/LoRA, greedy temperature 0 and seed 0, original user evidence JSON unchanged",
+  "development_gate": "Paired report-cluster EM difference CI95 lower > 0; F1 non-decrease; fewer output contract errors; request latency ratio <= 1.2",
+  "acceptance": "Run test only after a passing frozen development decision. Apply the same gates; report all results without test-based prompt changes.",
+  "interval": {"resamples": 2000, "seed": 103, "cluster": "source_report_id"},
+  "limits": "Focused prompt-contract ablation, not model weight improvement. Parent test was previously exposed; this is not a new blind test. Existing FinQA predictions are unaffected and are not regenerated or attributed to this change."
+}

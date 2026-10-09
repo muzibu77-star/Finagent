@@ -1,0 +1,46 @@
+{
+  "development": "data/staged/agent_v2_dev",
+  "acceptance": "data/staged/agent_v2_test",
+  "training_pool": "data/staged/jd_autonomous_train_v1",
+  "initial_model": "development-selected model from jd_evaluation_protocol.json",
+  "comparisons": [
+    "original_context",
+    "compressed_context",
+    "compressed_context_autonomous_sft"
+  ],
+  "budget": {
+    "calls_per_turn": 10,
+    "seconds_per_turn": 180,
+    "input_tokens": 8192,
+    "output_tokens": 512
+  },
+  "autonomous_sft": {
+    "accepted": "actual search, read, calculation and successful submission; correct numeric answer with exact source support; no rejected actions",
+    "max_sequence_length": 3072,
+    "initialization": "selected SFT weights with fresh optimizer and scheduler; complete state for subsequent resumes",
+    "epochs": 1,
+    "update_rule": "ceil(action_samples / 8), fixed cyclic order with longest sample first; report final partial-batch repeats",
+    "effective_batch": 8,
+    "learning_rate": 1e-05,
+    "seed": 0,
+    "precision": "BF16 base, FP32 LoRA and optimizer; BF16 LoRA only in vLLM inference"
+  },
+  "primary": "whole-task success on combined cross_evidence and multi_turn development tasks",
+  "candidate_gates": {
+    "paired_issuer_bootstrap_ci95_lower_above_zero": true,
+    "single_question_success_non_decrease": true,
+    "scope_controls_non_decrease": true,
+    "general_tool_regression_non_decrease": true,
+    "synthetic_visual_regression_non_decrease": true,
+    "maximum_total_generation_time_ratio": 2.0
+  },
+  "confidence_interval": {
+    "cluster": "issuer; missing-company controls share one cluster",
+    "resamples": 2000,
+    "seed": 103
+  },
+  "acceptance_rule": "Freeze settings before agent_v2_test. Report all three routes; no tuning or model selection from acceptance results.",
+  "deployment_rule": "These comparisons leave the existing fixed service default in place; dynamic quality and adoption decisions must be reported explicitly.",
+  "limits": "Fixed flow has only a single-question comparator here; unsupported cross-report and multi-turn tasks are not counted as zero-score algorithmic baselines.",
+  "context_revision": "dialogue-v7: retain complete first read and full numeric catalogue, compact repeated reads, retain all actual current-revision assistant/tool messages; explicit #0 step syntax; full development validation before acceptance"
+}

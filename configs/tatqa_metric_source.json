@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/NExTplusplus/TAT-QA",
+  "revision": "870accc41953dcde885aabeb963d94aabdc0fbc3",
+  "upstream_sha256": {
+    "tatqa_metric.py": "2aeeac479f89f8c76300af1cc0e8d098eb86af84bc386b38b6ab4af484a6dea8",
+    "tatqa_utils.py": "a84bb2f960737cf0a53733637a674cc4b20ef030a2be6a4b21dc2c4356f415ec",
+    "LICENSE": "46e27ffbc49c3fd44a9595c2213f8a5f4319a81b53238e49ce1eec39e7e25662"
+  },
+  "modification": "Only package-qualified tatqa_utils import; scoring unchanged."
+}

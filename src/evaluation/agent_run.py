@@ -13,7 +13,8 @@ from src.data.corpus import Corpus
 from src.evidence.identity import evidence_identity
 from src.harness.store import Store
 from src.model.agent import ModelDriver
-from src.model.financial import predict
+from src.model.financial import TOOLS, decode_prediction, messages_for, predict
+from src.model.http_driver import HttpDriver
 
 
 def score_turn(row: dict, expected, evidence_ids: list[str], identities: dict) -> dict:
@@ -37,10 +38,16 @@ def main() -> None:
     parser.add_argument('--output-dir',type=Path,required=True)
     parser.add_argument('--adapter',type=Path)
     parser.add_argument('--resume',action='store_true')
+    parser.add_argument('--tasks-root', type=Path)
+    parser.add_argument('--context-management', action='store_true')
+    parser.add_argument('--server-url')
+    parser.add_argument('--served-model', default='base')
     args=parser.parse_args()
+    if args.adapter and args.server_url:
+        parser.error('use a declared served model for server-side adapters')
     logging.basicConfig(level=logging.INFO,format='%(asctime)s %(message)s')
-    root=Path('data/staged/m3_acceptance_v1')
-    lock=json.loads(Path('configs/m3_acceptance_lock.json').read_text())
+    root=args.tasks_root or Path('data/staged/m3_acceptance_v1')
+    lock=json.loads((root/'lock.json' if args.tasks_root else Path('configs/m3_acceptance_lock.json')).read_text())
     for name,digest in lock['sha256'].items():
         if hashlib.sha256((root/f'{name}.json').read_bytes()).hexdigest()!=digest:
             raise ValueError('frozen acceptance inputs changed')
@@ -52,11 +59,19 @@ def main() -> None:
         args.output_dir.mkdir(parents=True,exist_ok=False)
     settings={'adapter':str(args.adapter) if args.adapter else None,'lock':lock,
               'max_calls':10,'task_seconds':180,'max_input_tokens':8192,'max_output_tokens':512}
+    if args.tasks_root or args.context_management:
+        settings.update(context_management=args.context_management,
+                        tasks_root=str(root), source_sha256={str(p): hashlib.sha256(p.read_bytes()).hexdigest()
+                            for p in (Path(__file__), Path('src/agent/runner.py'), Path('src/agent/context.py'))})
+    if args.server_url:
+        settings.update(backend='vllm', server_url=args.server_url,
+                        served_model=args.served_model,
+                        http_driver_sha256=hashlib.sha256(Path('src/model/http_driver.py').read_bytes()).hexdigest())
     settings_path=args.output_dir/'settings.json'
     if args.resume:
         if json.loads(settings_path.read_text())!=settings: raise ValueError('resume config mismatch')
     else: settings_path.write_text(json.dumps(settings,indent=2))
-    corpus=Corpus(str(root/'corpus.json'),'m3-frozen-v1')
+    corpus=Corpus(str(root/'corpus.json'),tasks[0]['snapshot_id'])
     identities={key:evidence_identity(doc['evidence'],doc['source_report_id'])
                 for key,doc in corpus.documents.items()}
     store=Store(str(args.output_dir/'tasks.sqlite'))
@@ -70,9 +85,11 @@ def main() -> None:
     old_fixed=list(map(json.loads,fixed_path.read_text().splitlines())) if fixed_path.exists() else []
     fixed_results={r['task_id']:r['result'] for r in old_fixed}
     started=time.monotonic()
-    with ModelDriver(str(args.adapter) if args.adapter else None) as model:
+    driver = (HttpDriver(args.server_url, args.served_model) if args.server_url else
+              ModelDriver(str(args.adapter) if args.adapter else None))
+    with driver as model:
         store.recover()  # The driver owns the exclusive process lock before recovery.
-        runner=Runner(store,corpus,model)
+        runner=Runner(store,corpus,model,context_management=args.context_management)
         for task in tasks:
             task_id=task['task_id']
             if task_id in done: continue
@@ -103,8 +120,15 @@ def main() -> None:
                         selected=hits[0]['evidence_id']
                         config=copy.deepcopy(model.config)
                         config['generation']['max_input_tokens']=8192
-                        fixed=predict(model.model,model.tokenizer,corpus.documents[selected]['evidence'],
-                                      question,'calculator',config)
+                        if args.server_url:
+                            messages, facts = messages_for(corpus.documents[selected]['evidence'],
+                                                           question, 'calculator')
+                            fixed = decode_prediction(model.generate(messages, TOOLS, 512, 8192),
+                                                      facts, 'calculator')
+                        else:
+                            fixed=predict(model.model,model.tokenizer,corpus.documents[selected]['evidence'],
+                                          question,'calculator',config)
+                        fixed['selected_evidence'] = selected
                         fixed['source_supported']=identities[selected]==identities[gold[task_id]['evidence_ids'][0][0]]
                         fixed['correct']=('error' not in fixed and fixed.get('prediction')==gold[task_id]['expected'][0][0])
                     else: fixed={'error':'no retrieved evidence','correct':False,'source_supported':False}

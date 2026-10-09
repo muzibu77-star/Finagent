@@ -1,0 +1,8 @@
+# Isolated serving environment only; do not install into the training environment.
+--extra-index-url https://download.pytorch.org/whl/cu130
+vllm==0.25.1
+torch==2.11.0+cu130
+torchvision==0.26.0+cu130
+torchaudio==2.11.0+cu130
+transformers==5.19.0
+cuda-python==13.3.1

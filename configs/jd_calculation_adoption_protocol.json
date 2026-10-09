@@ -1,0 +1,12 @@
+{
+  "reference": "historical_action",
+  "candidate": "full_context",
+  "scope": "Only the explicit single-source calculator workflow on structured financial evidence; direct-answer, document-PDF RAG, general and dynamic-Agent routes keep their separately selected models",
+  "routing_rule": "Route by the requested workflow before generation, never by question identity, answer labels, prediction confidence, or correctness",
+  "development_gate": "Same existing primary paired FinQA calculator EM CI95 lower > 0, general/visual probes non-decrease, calculator request latency ratio <= 2.0. Direct-answer/TAT-QA outputs remain the historical model outputs by construction; no whole-model replacement is claimed.",
+  "test_acceptance": "Require the frozen development choice and paired test calculator EM CI95 lower > 0, with the same latency and capability gates. No test-based routing changes.",
+  "evidence": "Reuse already independently audited complete model evaluations; retain rejected whole-model adoption separately. Derived route comparisons add no model calls.",
+  "deployment": "After passing test, set a separate calculator_adapter in model_choice.json. The fixed structured-evidence service uses it; the existing adapter remains the document/direct reference. Verify actual model selection and native service behavior with a fresh database.",
+  "interval": {"resamples": 2000, "seed": 103, "cluster": "source_report_id"},
+  "limits": "Development-selected scope restriction, not evidence of a universal model upgrade. Test reports have prior exposure; no claim of a new blind test. Serving and native adapter dtypes differ and require explicit calibration."
+}

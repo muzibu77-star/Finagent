@@ -11,7 +11,8 @@ from src.evaluation.numeric_score import parse_numeric, scalar, score
 
 def audit(run: Path, chinese: bool) -> dict:
     settings = json.loads((run / 'settings.json').read_text())
-    root = Path('data/staged/m5_chinese_v1' if chinese else settings['config']['input_root'])
+    root = Path(settings.get('tasks_root', 'data/staged/m5_chinese_v1')
+                if chinese else settings['config']['input_root'])
     tasks = json.loads((root / 'tasks.json').read_text())
     gold = json.loads((root / 'gold.json').read_text())
     rows = [json.loads(line) for line in (run / 'records.jsonl').read_text().splitlines()]
@@ -19,8 +20,11 @@ def audit(run: Path, chinese: bool) -> dict:
     for name, digest in lock['sha256' if chinese else 'hashes'].items():
         assert hashlib.sha256((root / name).read_bytes()).hexdigest() == digest
     field = 'mode' if chinese else 'condition'
-    expected = {(t['id'], mode) for t in tasks for mode in
-                (('text', 'vision') if chinese else ('text', 'vision', 'hybrid'))}
+    modes = settings.get('modes', ['text', 'vision']) if chinese else ['text', 'vision', 'hybrid']
+    if chinese and (not modes or len(set(modes)) != len(modes)
+                    or not set(modes) <= {'text', 'vision'}):
+        raise ValueError('invalid frozen Chinese modes')
+    expected = {(t['id'], mode) for t in tasks for mode in modes}
     if not chinese:
         expected.update((t['id'], 'occluded') for t in tasks[:3])
         monetary = [t for t in tasks if gold[t['id']]['answer_type'] == 'span'

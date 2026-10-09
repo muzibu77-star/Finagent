@@ -1,6 +1,6 @@
 import unittest
 
-from src.training.prepare_sft import convert_program
+from src.training.prepare_sft import annotated_facts, convert_program
 
 
 class PrepareSftTests(unittest.TestCase):
@@ -23,3 +23,19 @@ class PrepareSftTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'unsupported'):
             convert_program('table_sum(Revenue, none)',
                 {'evidence_id':'e','table':[['Revenue','10','20']]},30)
+
+    def test_released_row_annotation_resolves_original_fact_id(self):
+        evidence = {'evidence_id': 'e', 'table': [['A', '10'], ['B', '10', '20']]}
+        refs = annotated_facts(evidence, {'table_1': 'B is 10 and 20'})
+        action, result = convert_program('add(10, 20)', evidence, 30, refs)
+        self.assertEqual(action['steps'][0]['args'], ['f1', 'f2'])
+        self.assertEqual(result['facts']['f1']['location']['row'], 1)
+        with self.assertRaisesRegex(ValueError, 'ambiguous'):
+            convert_program('add(10, 20)', evidence, 30, {'f0', 'f1', 'f2'})
+
+    def test_table_reduction_remaps_prior_results(self):
+        action, result = convert_program('table_average(Revenue, none), multiply(#0, const_2)',
+            {'evidence_id': 'e', 'table': [['Revenue', '10', '20', '30']]}, 40,
+            table_reductions=True)
+        self.assertEqual(action['steps'][-1]['args'], ['#2', 'const_2'])
+        self.assertEqual(result['value'], 40)

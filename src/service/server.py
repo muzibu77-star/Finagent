@@ -15,20 +15,34 @@ from src.harness.store import Conflict, Store
 
 class Service:
     def __init__(self, database: str, corpus_path: str, snapshot: str, adapter: str | None,
-                 reports: bool = False):
+                 reports: bool = False, neural_index: str | None = None):
         self.store = Store(database)
         self.corpus_path, self.snapshot, self.adapter = corpus_path, snapshot, adapter
         self.reports = reports
+        self.neural_index = neural_index
+        if neural_index and not reports:
+            raise ValueError('neural document retrieval requires report metadata')
         raw = Path(corpus_path).read_bytes()
         self.fingerprint = hashlib.sha256(raw).hexdigest()
         self.documents = json.loads(raw)
-        binding = json.dumps({'snapshot': snapshot, 'corpus_sha256': self.fingerprint,
-                              'workflow': 'fixed-v1'}, sort_keys=True)
+        identity = {'snapshot': snapshot, 'corpus_sha256': self.fingerprint,
+                    'workflow': 'fixed-v1'}
+        if adapter:
+            identity['adapter_sha256'] = {name: hashlib.sha256(
+                (Path(adapter) / name).read_bytes()).hexdigest()
+                for name in ('adapter_config.json', 'adapter_model.safetensors')}
+        if reports:
+            identity['prompt_serialization'] = 'unicode-v1'
+            identity['document_tool_contract'] = 'lookup-v1'
+        if neural_index:
+            identity['retrieval_config_sha256'] = hashlib.sha256(
+                Path('configs/jd_retrieval.json').read_bytes()).hexdigest()
+        binding = json.dumps(identity, sort_keys=True)
         with self.store.transaction() as db:
             db.execute('CREATE TABLE IF NOT EXISTS service_config (id INTEGER PRIMARY KEY, body TEXT NOT NULL)')
             previous = db.execute('SELECT body FROM service_config WHERE id=1').fetchone()
             if previous and previous['body'] != binding:
-                raise ValueError('database belongs to a different source snapshot or workflow')
+                raise ValueError('database belongs to a different source snapshot, model or workflow')
             db.execute('INSERT OR IGNORE INTO service_config VALUES(1,?)', (binding,))
         self.ready, self.error = False, None
         self.shutdown = threading.Event()
@@ -49,7 +63,11 @@ class Service:
 
         try:
             with ModelDriver(self.adapter) as model:
-                if self.reports:
+                if self.neural_index:
+                    from src.data.rag_corpus import RagCorpus
+
+                    corpus = RagCorpus(self.corpus_path, self.snapshot, Path(self.neural_index))
+                elif self.reports:
                     choice = json.loads(Path('configs/report_retrieval_choice.json').read_text())
                     corpus = ReportCorpus(self.corpus_path, self.snapshot, choice['mode'])
                     if corpus.fingerprint != choice['corpus_sha256']:
@@ -58,7 +76,8 @@ class Service:
                     corpus = Corpus(self.corpus_path, self.snapshot)
                 try:
                     self.store.recover()
-                    runner = FixedRunner(self.store, corpus, model)
+                    runner = FixedRunner(self.store, corpus, model,
+                                         unicode_context=self.reports)
                     self.ready = True
                     while not self.shutdown.is_set():
                         with self.store.transaction() as db:
@@ -224,10 +243,15 @@ def main() -> None:
     parser.add_argument('--corpus', default='data/staged/m3_acceptance_v1/corpus.json')
     parser.add_argument('--snapshot', default='m3-frozen-v1')
     parser.add_argument('--reports', action='store_true')
+    parser.add_argument('--neural-index', help='Persistent Qdrant index for the explicit document RAG mode')
     args = parser.parse_args()
+    if args.neural_index and not args.reports:
+        parser.error('--neural-index requires --reports')
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s')
-    adapter = json.loads(Path('configs/model_choice.json').read_text())['adapter']
-    service = Service(args.database, args.corpus, args.snapshot, adapter, args.reports)
+    choice = json.loads(Path('configs/model_choice.json').read_text())
+    adapter = (choice['adapter'] if args.reports else
+               choice.get('calculator_adapter', choice['adapter']))
+    service = Service(args.database, args.corpus, args.snapshot, adapter, args.reports, args.neural_index)
     server = ThreadingHTTPServer(('127.0.0.1', args.port), handler_for(service))
     service.start()
     logging.info('UI http://127.0.0.1:%d ; database=%s', args.port, args.database)

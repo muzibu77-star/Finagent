@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import logging
+import math
 from pathlib import Path
 import random
 import time
@@ -46,20 +47,41 @@ def prepare_samples(config: dict, tokenizer) -> tuple[list[dict], dict]:
         samples = json.loads(prepared.read_text())
         allowed = {r['task_id'] for r in manifest if r['original_split'] == 'train'
                    and r['official_eligible']}
+        source_reports = {r['task_id']: r['source_report_id'] for r in manifest}
         ids = [sample['task_id'] for sample in samples]
-        if len(ids) != len(set(ids)) or not set(ids) <= allowed:
+        if config.get('autonomous_supervision', False):
+            from src.training.autonomous_sft import validate_training_parents
+            validate_training_parents(samples, manifest)
+        elif len(ids) != len(set(ids)) or not set(ids) <= allowed:
             raise ValueError('supervision contains duplicate or held-out tasks')
         for sample in samples:
-            tokens, labels = sample['input_ids'], sample['labels']
-            if (not tokens or len(tokens) != len(labels)
-                    or len(tokens) > config['max_sequence_length']
-                    or not any(label != -100 for label in labels)
-                    or any(label not in (-100, token) for token, label in zip(tokens, labels))):
-                raise ValueError('invalid prepared token/mask contract')
+            variants = [sample]
+            if config.get('training_objective') == 'dpo':
+                if (sample['chosen_reward'] != 1 or sample['rejected_reward'] != 0
+                        or sample['source_report_id'] != source_reports[sample['task_id']]
+                        or not all(math.isfinite(sample[key]) and sample[key] <= 0 for key in
+                                   ('reference_chosen_logp', 'reference_rejected_logp'))
+                        or config['reference_adapter_sha256'] != config['initial_adapter_sha256']):
+                    raise ValueError('invalid execution preference or reference binding')
+                variants = [sample['chosen'], sample['rejected']]
+                prefixes = [v['input_ids'][:next((i for i, label in enumerate(v['labels'])
+                            if label != -100), len(v['labels']))] for v in variants]
+                if not prefixes[0] or prefixes[0] != prefixes[1]:
+                    raise ValueError('preference completions must share exactly the same prompt')
+            for variant in variants:
+                tokens, labels = variant['input_ids'], variant['labels']
+                if (not tokens or len(tokens) != len(labels)
+                        or len(tokens) > config['max_sequence_length']
+                        or not any(label != -100 for label in labels[1:])
+                        or any(label not in (-100, token) for token, label in zip(tokens, labels))):
+                    raise ValueError('invalid prepared token/mask contract')
         if len(samples) != config['samples']:
             raise ValueError('prepared sample count mismatch')
+        lengths = ([len(s[side]['input_ids']) for s in samples for side in ('chosen', 'rejected')]
+                   if config.get('training_objective') == 'dpo' else
+                   [len(s['input_ids']) for s in samples])
         return samples, {'selected': len(samples),
-                         'max_tokens': max(len(s['input_ids']) for s in samples),
+                         'max_tokens': max(lengths),
                          'prepared_samples': str(prepared)}
     candidates = [r for r in manifest if r['original_split'] == 'train'
                   and r['official_eligible'] and gold[r['task_id']]['labels_available']]
@@ -101,6 +123,30 @@ def prepare_samples(config: dict, tokenizer) -> tuple[list[dict], dict]:
                      'selected': len(samples), 'max_tokens': len(longest['input_ids'])}
 
 
+def validated_initial_adapter(config: dict, model_config: dict) -> Path | None:
+    """A new SFT phase may initialize from weights, with a fresh optimizer.
+
+    This is distinct from --resume, which restores the complete phase state.
+    The original adapter and its contract remain bound into the fingerprint.
+    """
+    if not config.get('initial_adapter'):
+        return None
+    path = Path(config['initial_adapter'])
+    names = ('adapter_config.json', 'adapter_model.safetensors')
+    digests = {name: hashlib.sha256((path / name).read_bytes()).hexdigest() for name in names}
+    if digests != config.get('initial_adapter_sha256'):
+        raise ValueError('initial adapter hashes differ')
+    adapter = json.loads((path / 'adapter_config.json').read_text())
+    expected = {'r': config['rank'], 'lora_alpha': 16, 'lora_dropout': 0.0,
+                'target_modules': config['target_modules'], 'bias': 'none',
+                'base_model_name_or_path': model_config['path'], 'peft_type': 'LORA',
+                'rank_pattern': {}, 'alpha_pattern': {}, 'use_dora': False,
+                'use_rslora': False, 'modules_to_save': None}
+    if any(adapter.get(key) != value for key, value in expected.items()):
+        raise ValueError('initial adapter is incompatible with the training model/config')
+    return path
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config', default='configs/m0_training.json')
@@ -111,7 +157,15 @@ def main() -> int:
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
     config = json.loads(Path(args.config).read_text())
+    if config.get('training_objective', 'sft') not in ('sft', 'dpo'):
+        raise ValueError('unsupported training objective')
+    if config.get('training_objective') == 'dpo':
+        if not math.isfinite(config['beta']) or config['beta'] <= 0:
+            raise ValueError('DPO beta must be finite and positive')
+        from src.training.preference_data import require_full_baseline
+        require_full_baseline(Path(config['baseline_root']))
     model_config = yaml.safe_load(Path(config['model_config']).read_text())['model']
+    initial_adapter = validated_initial_adapter(config, model_config)
     output = args.output_dir
     output.mkdir(parents=True, exist_ok=True)
     torch.manual_seed(config['seed'])
@@ -128,6 +182,8 @@ def main() -> int:
         dtype=torch.bfloat16, device_map={'': model_config['device']}, local_files_only=True)
     if args.resume:
         model = PeftModel.from_pretrained(base, args.resume, is_trainable=True)
+    elif initial_adapter:
+        model = PeftModel.from_pretrained(base, initial_adapter, is_trainable=True)
     else:
         model = get_peft_model(base, LoraConfig(r=config['rank'], lora_alpha=16,
             lora_dropout=0.0, target_modules=config['target_modules'], bias='none'))
@@ -160,13 +216,22 @@ def main() -> int:
         step = state['step']
     device = model_config['device']
 
-    def batch(index: int) -> dict:
+    def batch(index: int, side: str | None = None) -> dict:
         sample = samples[index % len(samples)]
+        if side is not None:
+            sample = sample[side]
         ids = torch.tensor([sample['input_ids']], device=device)
         return {'input_ids': ids, 'attention_mask': torch.ones_like(ids),
                 'labels': torch.tensor([sample['labels']], device=device)}
 
     def compute_loss(index: int):
+        if config.get('training_objective') == 'dpo':
+            from src.training.preference_loss import dpo_loss, sequence_log_probability
+            sample = samples[index % len(samples)]
+            chosen = sequence_log_probability(model, batch(index, 'chosen'))
+            rejected = sequence_log_probability(model, batch(index, 'rejected'))
+            return dpo_loss(chosen, rejected, sample['reference_chosen_logp'],
+                            sample['reference_rejected_logp'], config['beta'])
         inputs = batch(index)
         return (assistant_loss(model, inputs) if config.get('selective_fp32_loss', False)
                 else model(**inputs).loss)
@@ -177,7 +242,8 @@ def main() -> int:
         model.eval()
         with torch.inference_mode():
             loss = float(compute_loss(0))
-        if abs(loss - state['reference_loss']) > 1e-5:
+        if (not math.isfinite(loss) or not math.isfinite(state['reference_loss'])
+                or abs(loss - state['reference_loss']) > 1e-5):
             raise RuntimeError('reload loss mismatch')
         if not optimizer.state or scheduler.last_epoch != step:
             raise RuntimeError('optimizer/scheduler resume mismatch')
@@ -195,9 +261,16 @@ def main() -> int:
         optimizer.zero_grad(set_to_none=True)
         losses = []
         for micro in range(config['gradient_accumulation']):
-            loss = compute_loss(step * config['gradient_accumulation'] + micro)
+            sample_index = step * config['gradient_accumulation'] + micro
+            loss = compute_loss(sample_index)
             if not torch.isfinite(loss):
-                raise RuntimeError('nonfinite loss')
+                sample = samples[sample_index % len(samples)]
+                token_count = (sum(len(sample[side]['input_ids']) for side in ('chosen', 'rejected'))
+                               if config.get('training_objective') == 'dpo' else len(sample['input_ids']))
+                failure = {'step': step, 'micro': micro, 'task_id': sample['task_id'],
+                           'tokens': token_count, 'error': 'nonfinite loss'}
+                (output / 'failure.json').write_text(json.dumps(failure, indent=2))
+                raise RuntimeError(str(failure))
             (loss / config['gradient_accumulation']).backward()
             losses.append(float(loss.detach()))
         norm = torch.nn.utils.clip_grad_norm_([p for _, p in trainable], 1.0)
@@ -218,6 +291,8 @@ def main() -> int:
     model.eval()
     with torch.inference_mode():
         reference_loss = float(compute_loss(0))
+    if not math.isfinite(reference_loss):
+        raise RuntimeError('nonfinite checkpoint verification loss')
     checkpoint = output / f'step_{step:04d}'
     checkpoint.mkdir(exist_ok=False)
     model.save_pretrained(checkpoint)

@@ -143,3 +143,43 @@ M2 采用决定入口为 `configs/model_choice.json`：后续使用动作 LoRA�
 - `README.md` 仅提供项目文档导航；`requirements-dev.txt` 是可选浏览器测试依赖，运行恢复、入口和外部资产边界集中在 [environment.md](environment.md)。
 
 默认入口 `.venv/bin/python -m src.service.server` → loopback API → SQLite 请求/队列 → 单 GPU 固定流程 → 原子报告/事件 → 网页和 JSON 导出。报告保留原始计算尺度，不能把基准比例自动显示为已核验百分比。网页状态来自实际事件；等待澄清、取消或失败都不显示为已回答。动态 Agent 与 M5 视觉仍为离线实验入口。
+
+## JD 优化新增入口（2026-10-07）
+
+新增实现的验收状态见 [plan.md](plan.md)，不替代原型默认采用决定。
+
+- `src/data/expand_reports.py` 下载年度原始 PDF，保留原页及空页状态；`freeze_rag.py` 以官方 TAT-DQA 可见 OCR 与块标注关联原报告页面，答案独立存储。资料为 `data/staged/jd_reports_v1/`，查询与页面标签为 `jd_rag_v1/`。
+- `src/retrieval/neural.py` 提供原字符跨度分块、BGE-M3 归一化 CLS 向量、本地 Qdrant、BM25/RRF 与交叉编码重排；权限在向量查询前过滤，索引绑定资料和配置并支持恢复。`RagCorpus` 复用披露日与版本过滤，以 CPU 检索与 GPU 生成共存。服务显式参数 `--reports --neural-index` 启用该实验模式，数据库额外绑定检索配置。
+- `rag_run.py` 保存检索消融；`rag_generation.py` 使用固定检索结果进行答案/引用评分及四阶段诊断，规则归因不是因果证明。`full_benchmark.py` 固定官方去泄漏全量输入，使用版本固定的 TAT-QA 官方评分和报告聚类 bootstrap。`src/model/http_driver.py` 是可选回环 vLLM 文本客户端，不替代生产服务的取消/恢复合同。
+- `src/evidence/compact.py` 构造保留原坐标的监督视图；`prepare_sft.py` 增加可选的全集扫描、已发布训练证据标注消歧、表格求和/平均展开，默认旧路径保留。新配对数据位于 `jd_sft_crop_*`，训练配置为 `configs/jd_*training.json`。训练入口新增失败样本及微步留痕，未改变优化器或精度。
+- `freeze_agent_v2.py` 排除旧开发/验收来源后冻结新资产。`Runner(context_management=True)` 压缩历史计算摘要，并复用相同查询结果；当前对话压缩保留每份资料首次读取的完整原文、全部事实编号和当前修订的完整动作/观察，重复读取只保留引用。默认行为保留，`agent_run --tasks-root ... --context-management` 为独立实验入口。
+- `src/service/mcp_server.py` 以 stdio 暴露固定研究范围内的搜索、读取、计算；计算只引用已读事实。`skills/financial-research/SKILL.md` 通过 MCP prompt 实际加载，`mcp_smoke.py` 保存真实客户端发现、成功链和越界拒绝证据。
+- `expand_chinese.py` 与 `configs/jd_chinese_sources.json` 从中文原页构造相关联的算术题族，保存原值、单位、来源、图像和哈希；不宣称独立人工标注。`chinese_run --tasks-root ... --text-only` 支持扩量文本评测。`restatement_run.py` 用实际康美原始报告和更正公告验证日粒度替换，扫描表转写范围明确，不代表自动 OCR 或整份更正年报。
+- `verify_device_copy.py` 对原始输出权重做 CUDA 往返逐位检查，失败返回非零，不自动修补权重或降低精度。新增结果与失败均在 [result.md](result.md) 留痕。
+
+### 恢复推进后的新增入口（2026-10-08）
+
+- `src/training/autonomous_sft.py` 分 freeze/collect/prepare 三步，模型只接收问题与范围，在真实 `Runner` 中执行搜索、读取、计算和提交；答案与来源标签仅用于执行后的筛选。保存逐次实际输入/输出及 SQLite 事件，按部署上下文生成逐动作样本，以 `parent_task_id` 回指允许训练问题。轨迹失败、捕获不一致和超长父轨迹整体排除；训练和验收状态由 [plan.md](plan.md) 管理。
+- `src/evaluation/agent_run.py` 新增显式本地 HTTP 后端，用于同后端的动态/固定对照，不替换生产取消合同。`context.py` 不再以相关度截取前 32 个事实；原始 get_evidence 观察保留表格、段落、事实目录，实际计算引用仍来自持久化原始坐标。提示正文只记录请求、历史摘要、已读资料和已完成计算。
+- `src/evaluation/validate_full_benchmark.py` 独立重读冻结成员、原始输出和标签，重执行计算、核验完整分母及聚类置信区间，可计算与同协议基线的配对差异。不能用审计通过代替模型质量达标。
+- `restatement_run --state-replay` 用真实原页和更正来源，加受控脚本动作验证跨日期往返的事实、摘要、缓存和引用失效，明确与模型质量实验分开。中文准备支持 `--config`；新版来源配置为 `configs/jd_chinese_sources_v2.json`，输入 `data/staged/jd_chinese_v4/`。`validate_visual_run --chinese` 从运行设置读取实际冻结输入与文本/视觉模式，旧 M5 默认保留。
+- `validate_rag_generation.py` 独立检查检索摘录与原始页字符跨度、相关页指标、答案评分、引用及首个失败阶段；另外保留每阶段缺页和答案失败，避免把相关联的缺失误认为独立因果。`validate_agent_run.py` 从运行设置读取新版冻结集，核对分类汇总，并从实际事件统计输入长度、重复搜索/读取和非法提交。
+- `compare_agent_runs.py` 对同一新版任务集合计算发行人聚类配对区间，整段会话为一项；固定流程仅对可比单题计分。`configs/jd_agent_protocol.json` 固定自主训练与验收门槛。训练入口显式支持允许训练父问题派生的动作 ID，以及适配器权重初始化的新阶段；后者不冒称恢复上一阶段优化器。
+- `preference_data.py` 在 P0-2 完整审计门槛通过后，采集本地模型的实际工具输出，以执行结果与训练标签一致性构造偏好对，再缓存固定原生精度参考概率。`preference_loss.py` 实现 assistant 因果 token 概率总和的 sigmoid DPO；原训练入口用独立目标分支复用完整 checkpoint，默认 SFT 行为保留。协议为 `configs/jd_dpo_protocol.json`；训练、恢复及采用结论由 [result.md](result.md) 管理。
+- 神经索引身份同时绑定资料、配置和实现哈希；向量和重排分数非有限时立即失败，不写入异常向量。已有旧版本索引不能跨实现复用。
+
+### 对话压缩与部署一致监督（2026-10-08）
+
+上下文摘要不再重新编排或裁剪财务数字。`context_messages` 保留当前修订中实际 assistant/tool 消息，只将重复的完整 `get_evidence` 返回替换为指向首次读取的标记；首次资料中的完整表格、单位、期间、限定语和事实编号不变。重复查询缓存、预算、报告提交及原文引用仍由 `Runner`/`Store` 管理。任务范围改变继续清空本修订的对话。真实更正回放改从工具观察核对完整资料与事实目录；实验状态不得跨提示版本恢复。
+
+完整证据监督快照为 `data/staged/jd_sft_full_3072_v1/`，用于从历史动作适配器初始化的新对照；原裁剪版保留。偏好采样的提示改为与 `messages_for` 相同的完整证据与事实目录，按实际 token 长度筛选，参考程序不决定提示中可见的数字。新协议在采样前固定；对应实现入口及训练恢复合同不变。
+
+RAG 生成与审计入口新增 `--split dev/test`（未指定时仍运行冻结全集）；独立审计按设置核验该阶段的完整成员，开发和测试的输出分开保存。`configs/jd_rag_scope_protocol.json` 固定同 CPU 模型下全库/已知公司年份过滤的比较、开发选型和冻结后测试门槛。该跟进源于离线全库协议与在线 `ReportCorpus.allowed` 范围的差异；不改原全库结果或模型训练数据。
+
+### 验收后的服务与提示采用边界（2026-10-09）
+
+`configs/model_choice.json` 保留历史 `adapter` 供报告与原研究入口使用，新增 `calculator_adapter` / `calculator_evidence`。`Service.main` 在生成前按显式工作流选择：结构化单来源固定计算使用完整证据模型，`--reports` 使用历史动作模型；不按问题、标签或生成结果挑选模型。神经报告服务继续在允许范围内使用 cross_encoder。
+
+`FixedRunner(unicode_context=True)` 在文档服务中使用原始 Unicode JSON，并明确单值查值应调用 multiply(fact_id, const_1)，禁止不存在的 const 操作；完整原页、事实目录及解码后的所有字段不变，计算器严格校验保留。旧结构化提示默认保持不变。服务数据库身份增加适配器配置/权重 SHA，报告模式另绑定 `unicode-v1` 与 `lookup-v1`。旧数据库不自动迁移或覆盖；资料、权重或提示版本变化须新建库，旧源码/资产可用于恢复历史状态。
+
+`full_benchmark --strict-tatqa-output` 显式追加冻结的两字段提示，后缀写入 settings 并参与恢复校验，FinQA 不变。模型采用与同协议配对审计要求两臂后缀一致；有意比较不同提示的独立消融使用 `tatqa_contract_audit.py` 的归档版本。此选项是给定证据 TAT-QA 的研究入口，不是网页新增的直接问答工作流。最终部署源码与模型身份导航为 `artifacts/jd_resume_20261008/final_integration_provenance/`。
