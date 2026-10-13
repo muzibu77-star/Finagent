@@ -1,0 +1,19 @@
+{
+  "seed": 73,
+  "tasks": 80,
+  "counts": {
+    "calculation": 30,
+    "cross_evidence": 20,
+    "insufficient_or_missing_scope": 15,
+    "multi_turn": 15
+  },
+  "turns": 115,
+  "corpus_entries": 1152,
+  "sha256": {
+    "tasks": "2f99bd43d0f6c570572ae3787f84324b3c2cbf28127dc9468cf542e1620035fc",
+    "gold": "c8382f4a583905d355cd5aa45c3eeb25512fdf34b5ba11cda17d726eca6a9f47",
+    "corpus": "2cb3300a9f03302779b1ac1ba95bb92084a6887cd9a8fd4b7f9fd862f08942b7"
+  },
+  "score": "all required values, source IDs and terminal business state; report separately by category",
+  "limits": "Source-held-out custom tasks; not an official benchmark. Missing-scope controls are derived."
+}

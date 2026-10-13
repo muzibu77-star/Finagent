@@ -1,0 +1,234 @@
+{
+  "review": "Agent verified source text and original PDF pages; templated arithmetic families are correlated, not independently authored questions. Kangmei uses explicitly dated original pre-restatement figures. CMB 2023 A-share report published via HKEX 2024-03-25; PDF pages 16/18 contain data, page 17 retains per-share qualifications. CMB and Kangmei are test issuers; China Telecom is development and old China Mobile probes remain historical development.",
+  "sources": [
+    {
+      "id": "telecom2023",
+      "company": "中国电信",
+      "path": "data/raw/chinese_expanded/telecom2023.pdf",
+      "url": "https://www.chinatelecom-h.com/tc/ir/presentations/annpre240326.pdf",
+      "published_at": "2024-03-26",
+      "page": 5,
+      "years": [
+        "2022",
+        "2023"
+      ],
+      "unit": "人民币百万元",
+      "scale": "1000000",
+      "metrics": [
+        [
+          "经营收入",
+          "481,448",
+          "513,551"
+        ],
+        [
+          "服务收入",
+          "434,928",
+          "464,965"
+        ],
+        [
+          "EBITDA",
+          "130,359",
+          "136,830"
+        ],
+        [
+          "股东应占净利润",
+          "27,593",
+          "30,446"
+        ],
+        [
+          "每股盈利",
+          "0.30",
+          "0.33",
+          "人民币元/股",
+          "1"
+        ],
+        [
+          "每股全年股息",
+          "0.196",
+          "0.2332",
+          "人民币元/股",
+          "1"
+        ],
+        [
+          "ROE",
+          "6.4%",
+          "6.9%",
+          "%",
+          "0.01"
+        ]
+      ],
+      "sha256": "1698326fb9f88c224b45df06c14e788e32f712386504b02a62154a3812ba65e7"
+    },
+    {
+      "id": "kangmei2017p6",
+      "company": "康美药业",
+      "path": "data/raw/chinese_expanded/kangmei2017.pdf",
+      "url": "https://static.cninfo.com.cn/finalpage/2018-04-26/1204793690.PDF",
+      "published_at": "2018-04-26",
+      "page": 6,
+      "years": [
+        "2016",
+        "2017"
+      ],
+      "unit": "人民币元",
+      "scale": "1",
+      "qualifier": "按2018年4月26日披露的原2017年报（未更正口径），",
+      "metrics": [
+        [
+          "营业收入",
+          "21,642,324,070.28",
+          "26,476,970,977.57"
+        ],
+        [
+          "归属于上市公司股东的净利润",
+          "3,340,403,640.26",
+          "4,100,926,148.57"
+        ],
+        [
+          "归属于上市公司股东的扣除非经常性损益的净利润",
+          "3,313,706,535.24",
+          "4,027,843,491.44"
+        ],
+        [
+          "经营活动产生的现金流量净额",
+          "1,603,189,351.32",
+          "1,842,794,237.84"
+        ]
+      ],
+      "sha256": "15b3b15df2dfd3310cc16e1e345e8950e8a9cb047bdad38d1263e2b55cfd2985"
+    },
+    {
+      "id": "kangmei2017p7",
+      "company": "康美药业",
+      "path": "data/raw/chinese_expanded/kangmei2017.pdf",
+      "url": "https://static.cninfo.com.cn/finalpage/2018-04-26/1204793690.PDF",
+      "published_at": "2018-04-26",
+      "page": 7,
+      "years": [
+        "2016",
+        "2017"
+      ],
+      "unit": "人民币元",
+      "scale": "1",
+      "qualifier": "按2018年4月26日披露的原2017年报（未更正口径），",
+      "metrics": [
+        [
+          "归属于上市公司股东的净资产",
+          "29,115,570,378.99",
+          "32,032,959,807.76"
+        ],
+        [
+          "总资产",
+          "54,823,896,576.81",
+          "68,722,020,630.61"
+        ],
+        [
+          "基本每股收益",
+          "0.667",
+          "0.784",
+          "人民币元/股",
+          "1"
+        ],
+        [
+          "稀释每股收益",
+          "0.666",
+          "0.783",
+          "人民币元/股",
+          "1"
+        ]
+      ],
+      "sha256": "15b3b15df2dfd3310cc16e1e345e8950e8a9cb047bdad38d1263e2b55cfd2985",
+      "context_pages": [
+        6
+      ]
+    },
+    {
+      "company": "招商银行",
+      "path": "data/raw/chinese_expanded/cmb2023.pdf",
+      "url": "https://www.hkexnews.hk/listedco/listconews/sehk/2024/0325/2024032501067_c.pdf",
+      "published_at": "2024-03-25",
+      "years": [
+        "2022",
+        "2023"
+      ],
+      "sha256": "552c07404c56ea447756c23c69ace9eabdd25fee9d18462af408a4ec0fcac9d5",
+      "qualifier": "按2023年报本集团口径，",
+      "id": "cmb2023p16",
+      "page": 16,
+      "context_pages": [
+        17
+      ],
+      "unit": "人民币百万元",
+      "scale": "1000000",
+      "metrics": [
+        [
+          "营业收入",
+          "344,783",
+          "339,123"
+        ],
+        [
+          "营业利润",
+          "165,156",
+          "176,663"
+        ],
+        [
+          "归属于本行股东的净利润",
+          "138,012",
+          "146,602"
+        ],
+        [
+          "经营活动产生的现金流量净额",
+          "570,143",
+          "357,753"
+        ],
+        [
+          "归属于本行普通股股东的基本每股收益",
+          "5.26",
+          "5.63",
+          "人民币元/股",
+          "1"
+        ],
+        [
+          "归属于本行普通股股东的平均净资产收益率",
+          "17.06",
+          "16.22",
+          "%",
+          "0.01"
+        ]
+      ]
+    },
+    {
+      "company": "招商银行",
+      "path": "data/raw/chinese_expanded/cmb2023.pdf",
+      "url": "https://www.hkexnews.hk/listedco/listconews/sehk/2024/0325/2024032501067_c.pdf",
+      "published_at": "2024-03-25",
+      "years": [
+        "2022",
+        "2023"
+      ],
+      "sha256": "552c07404c56ea447756c23c69ace9eabdd25fee9d18462af408a4ec0fcac9d5",
+      "qualifier": "按2023年报本集团口径，",
+      "id": "cmb2023p18",
+      "page": 18,
+      "unit": "%",
+      "scale": "0.01",
+      "metrics": [
+        [
+          "净利息收益率",
+          "2.40",
+          "2.15"
+        ],
+        [
+          "成本收入比",
+          "32.88",
+          "32.96"
+        ],
+        [
+          "年末不良贷款率",
+          "0.96",
+          "0.95"
+        ]
+      ]
+    }
+  ]
+}

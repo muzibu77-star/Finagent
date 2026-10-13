@@ -1,0 +1,9 @@
+# Optional: DeepSpeed backend for src.training.deepspeed_lora. Not part of the default
+# environment. Install into a separate directory and add it to PYTHONPATH for that run only:
+#   pip install --no-deps --no-build-isolation --target artifacts/deepspeed_env/site -r requirements-distributed.txt
+deepspeed==0.19.7
+hjson==3.1.0
+ninja==1.13.2
+py-cpuinfo==9.0.0
+einops==0.8.2
+nvidia-ml-py==13.615.71

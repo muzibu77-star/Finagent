@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Finagent · 财报研究</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
+<body>
+<header><div class="brand">Finagent <span>财报研究工作台</span></div><span id="connection">连接中</span></header>
+<main>
+<section class="intro"><p class="eyebrow">FINANCIAL RESEARCH</p><h1>从问题到可核对的证据。</h1><p id="notice">研究原型 · 结果需复核</p></section>
+<div class="columns">
+<section class="card"><h2>研究范围</h2><form id="form">
+<label>公司<select id="company"><option value="">请选择公司</option></select></label>
+<label>报告期间<input id="period" placeholder="如 2016；多个期间用逗号分隔" autocomplete="off"></label>
+<label id="cutoffLabel" hidden>披露截止日<input id="asOf" type="date"><small>按截止日当日结束计算；没有核实披露日期的材料不参与查询。</small></label>
+<label>问题<textarea id="question" rows="5" required placeholder="输入需要核对的财报问题"></textarea></label>
+<div class="actions"><button type="submit" id="submit">开始研究</button><button type="button" id="new" class="secondary">新建问题</button><button type="button" id="cancel" class="secondary" disabled>取消</button></div>
+<p class="hint" id="context">连续追问将沿用当前任务；切换公司或期间后重新取证。</p>
+</form><p id="error" role="alert"></p></section>
+<section class="card"><div class="section-title"><h2>研究进度</h2><span id="status">等待提问</span></div><p id="questionShown"></p><ol id="events" aria-live="polite"></ol><p id="clarification" class="hint"></p></section>
+</div>
+<section class="card"><div class="section-title"><h2>结果与来源</h2><button id="export" class="secondary" disabled>导出本轮 JSON</button></div><div id="report"><p class="empty">完成后在此查看计算结果及引用原文。</p></div></section>
+<dialog id="source"><div class="section-title"><h2>引用原文</h2><button id="closeSource" class="secondary">关闭</button></div><p id="sourceMeta"></p><pre id="sourceText"></pre></dialog>
+</main><footer>单任务依次执行 · 每次计算保留来源 · 未完成或待澄清的任务不显示为已回答</footer>
+</body></html>

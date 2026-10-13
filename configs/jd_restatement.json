@@ -1,0 +1,26 @@
+{
+  "company": "600518",
+  "period": "2017",
+  "snapshot_id": "kangmei-restatement-v1",
+  "original": {
+    "path": "data/raw/chinese_expanded/kangmei2017.pdf",
+    "url": "https://static.cninfo.com.cn/finalpage/2018-04-26/1204793690.PDF",
+    "sha256": "15b3b15df2dfd3310cc16e1e345e8950e8a9cb047bdad38d1263e2b55cfd2985",
+    "published_at": "2018-04-26",
+    "page": 99
+  },
+  "correction": {
+    "path": "data/raw/chinese_expanded/kangmei2017_correction.pdf",
+    "url": "https://static.cninfo.com.cn/finalpage/2019-04-30/1206168283.PDF",
+    "sha256": "ca22aa1858f56e2cd9181d15c88fde83312afb94701898a2de74c378c7c41bab",
+    "published_at": "2019-04-30",
+    "page": 5
+  },
+  "review": "Agent transcribed and visually checked four complete rows on correction PDF page 5 (printed page 4). Scanned original retained; no OCR accuracy claim. Disclosure dates use CNINFO publication paths, not audit-signing dates. Limited to these restated balance-sheet metrics; not a complete corrected annual report.",
+  "rows": [
+    ["货币资金", "34,151,434,208.68", "-29,944,309,821.45", "4,207,124,387.23"],
+    ["应收账款", "4,351,011,323.40", "641,073,222.34", "4,992,084,545.74"],
+    ["其他应收款", "180,323,027.94", "5,713,820,971.90", "5,894,143,999.84"],
+    ["存货", "15,700,188,439.34", "19,546,349,940.99", "35,246,538,380.33"]
+  ]
+}

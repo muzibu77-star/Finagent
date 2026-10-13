@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+/Qwen3.5-9B/
+/models/
+/.venv-serving/
+/.venv-mineru/
+/artifacts/
+/checkpoints/
+/data/
+.env
+.env.*
+!.env.example
+/JD
+/主简历-中文版.md

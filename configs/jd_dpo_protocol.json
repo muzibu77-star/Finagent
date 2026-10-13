@@ -1,0 +1,26 @@
+{
+  "prerequisite": "Both expanded SFT arms verified; all four models have audited full development and test results; development choice already frozen",
+  "candidate_tasks": 400,
+  "draws": 4,
+  "seed": 113,
+  "temperature": 0.7,
+  "max_prompt_tokens": 1792,
+  "max_output_tokens": 256,
+  "max_sequence_length": 2048,
+  "evidence": "Complete original evidence and full numeric fact catalogue, exactly messages_for used at inference; no reference-selected rows or fact IDs. Select fitting training prompts only and report exclusions.",
+  "reward": "1 only for a valid source-bound tool execution matching the released training answer; 0 otherwise",
+  "pair_rule": "First complete reward-1 and reward-0 outputs in fixed seed order; preserve every generation and exclusion; no synthetic wrong answers",
+  "reference": "Frozen development-selected SFT model, native BF16 base and FP32 LoRA; precompute summed assistant-only log probabilities with caching disabled",
+  "beta": 0.1,
+  "learning_rate": 5e-06,
+  "epochs": 1,
+  "effective_pair_batch": 8,
+  "selection": "No hyperparameter search. Apply predeclared SFT development quality, capability and latency gates against the reference, then report the full frozen test comparison",
+  "references": [
+    "https://arxiv.org/abs/2305.18290",
+    "https://huggingface.co/docs/trl/v0.12.1/en/dpo_trainer"
+  ],
+  "limits": "Execution agreement is an automatic training reward, not human financial preference or verified financial interpretation. Length-filtered preference subset is reported separately from the 2003-example SFT set.",
+  "revision": "full-context-v2, before any preference sampling or optimization",
+  "length_validation": "Full context at the old 1280 prompt cap retained only 42/2003 eligible source traces. Raise prompt/pair limits to 1792/2048 before sampling; actual longest-pair forward/backward and full-state recovery required before remaining updates."
+}

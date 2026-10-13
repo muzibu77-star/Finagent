@@ -1,0 +1,16 @@
+{
+  "model_config": "configs/m0_inference.yaml",
+  "data_dir": "data/staged/m0_frozen_v1",
+  "samples": 2003,
+  "max_sequence_length": 3072,
+  "rank": 8,
+  "gradient_accumulation": 8,
+  "updates": 251,
+  "learning_rate": 0.0001,
+  "seed": 0,
+  "precision": "bf16",
+  "target_modules": "model\\.language_model\\.layers\\.\\d+\\.(self_attn\\.(q_proj|k_proj|v_proj|o_proj)|linear_attn\\.(in_proj_qkv|in_proj_z|in_proj_b|in_proj_a|out_proj)|mlp\\.(gate_proj|up_proj|down_proj))",
+  "prepared_samples": "data/staged/jd_sft_crop_3072_v1/action.json",
+  "samples_sha256": "4b26c9aef057f4cec39a5071e58e71be061b839fac1f79eeb024e3794f832386",
+  "selective_fp32_loss": true
+}

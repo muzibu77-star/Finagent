@@ -1,0 +1,25 @@
+{
+  "data_protocol": "official_filtered_v1",
+  "development_inputs": {"finqa": 485, "tatqa": 222},
+  "test_inputs": {"finqa": 1137, "tatqa": 1639, "tatqa_unlabeled": 18},
+  "models": ["base", "historical_action", "expanded_action", "expanded_answer"],
+  "training_precision": {"base": "bfloat16", "lora": "float32"},
+  "planned_serving_precision": {"base": "bfloat16", "lora": "bfloat16"},
+  "backend": "vLLM 0.25.1, local completions with the original tokenizer and tool syntax",
+  "backend_gate": "Validate native general tools and visual regression; compare 40 historical development cases against Transformers. Report the LoRA inference precision change explicitly. If service loading or contracts fail, retain the native backend and record the failed service attempt.",
+  "selection_split": "development only; freeze decision before full test evaluation",
+  "primary_metric": "FinQA calculator execution accuracy",
+  "reference": "historical_action",
+  "adoption_gates": {
+    "paired_report_cluster_ci95_lower_bound_above_zero": true,
+    "tatqa_f1_non_decrease": true,
+    "general_tool_regression_non_decrease": true,
+    "synthetic_visual_regression_non_decrease": true,
+    "maximum_calculator_latency_ratio": 2.0
+  },
+  "tie_break": "highest development primary metric, then lower latency",
+  "otherwise": "retain historical_action",
+  "confidence_intervals": {"method": "source report cluster bootstrap", "resamples": 2000, "seed": 103},
+  "limits": "Old 40 tasks are development/calibration only. Previously exposed test sources are not a fresh blind test. Service precision results are not identical to FP32-LoRA Transformers inference. No selection or tuning from full-test outputs.",
+  "serving_reference": "https://docs.vllm.ai/en/stable/cli/serve/"
+}

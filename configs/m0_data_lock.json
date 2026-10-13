@@ -1,0 +1,21 @@
+{
+  "sha256": {
+    "data/raw/tatqa/tatqa_dataset_train.json": "2df6e722cdbaaa37efcbfb280f5c9a15be29a6ec18f618ef936fe63cc6d07c69",
+    "data/raw/tatqa/tatqa_dataset_dev.json": "8da095a819af6db3c14877c6df2d4d29960e41d1a63dd1fa853507bd2a616af5",
+    "data/raw/tatqa/tatqa_dataset_test.json": "6efcf044cedeba3661eb70b1b93595673fd3f3dfcc1f78288ec5115682e7a96c",
+    "data/raw/tatdqa/tatdqa_dataset_train.json": "3025b4ca9c3c87f5ecd2c504371e1ee92929ef1f31d8a3ac38bc3a5376582fab",
+    "data/raw/tatdqa/tatdqa_dataset_dev.json": "07395642f317754ed22bd8330525af7c1e15b7189efdf046cd0a257fc3178fcb",
+    "data/raw/tatdqa/tatdqa_dataset_test.json": "92e20a746efc203936fa38d76e3f3762df4f7a15b815bb6c247a5a1049d27982",
+    "data/raw/convfinqa/data.zip": "d764271fae60d81b62e6d58dfc481807ebc8cfbcd633811241723c4a2101072a",
+    "data/raw/finqa/train.json": "49f237eb9779b569473b26b08048867d04635a7cc39ad6a7a5664c55bb428db6",
+    "data/raw/finqa/dev.json": "a847fb7e0d61a3125a1e2909852df6b89f1ee64d2c5ff1bf689e332214deee51",
+    "data/raw/finqa/test.json": "831dbfb2e785dbc227f895ce3f24046433467aec67b09db2bd6ac7692a8a30dc",
+    "data/raw/tatqa/tatqa_dataset_test_gold.json": "c4d08418359c1d76468dec420ee748a37f48c06b63cb8ec2766f19d5d314b597"
+  },
+  "revisions": {
+    "finqa": "0f16e2867befa6840783e58be38c9efb9229d742",
+    "convfinqa": "cf3eed2d5984960bf06bb8145bcea5e80b0222a6",
+    "tatqa": "870accc41953dcde885aabeb963d94aabdc0fbc3",
+    "tatdqa": "bc46208b22f0bfe47152c98fd0938d238ce868c2"
+  }
+}

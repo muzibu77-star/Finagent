@@ -1,0 +1,26 @@
+{
+  "company": "002341",
+  "period": "2018",
+  "snapshot_id": "xinlun-restatement-v1",
+  "original": {
+    "path": "data/raw/chinese_expanded/xinlun2018.pdf",
+    "url": "https://file.finance.sina.com.cn/211.154.219.97:9494/MRGG/CNSESZ_STOCK/2019/2019-4/2019-04-23/5239812.PDF",
+    "sha256": "392df57f76acd793769355ba8f2b47d749f471893473eb6053dbf7df291fb710",
+    "published_at": "2019-04-23",
+    "page": 91
+  },
+  "correction": {
+    "path": "data/raw/chinese_expanded/xinlun_notice.pdf",
+    "url": "https://file.finance.sina.com.cn/211.154.219.97:9494/MRGG/CNSESZ_STOCK/2020/2020-4/2020-04-30/6231015.PDF",
+    "sha256": "3fea01eb875cb41f128ee2dce604a0bcc701b16019f24cc7c6a350737718ae19",
+    "published_at": "2020-04-30",
+    "page": 4,
+    "extraction": "PDFium"
+  },
+  "review": "Issuer original PDFs mirrored by Sina, retaining CNINFO watermark. Original announcement listing dated 2019-04-23; correction announcement 2020-035 is dated 2020-04-30 on page 5 and listing. Some later financial-note wording says April 29, inconsistent with the dated notice; this selected-snapshot replay uses the actual notice publication date, not earliest-information omniscience. Scope: three corrected 2018 consolidated balance-sheet rows, not a complete restated annual report. Agent visually checked correction page 4.",
+  "rows": [
+    ["应收账款", "1,539,786,222.64", "-204,064,563.36", "1,335,721,659.28"],
+    ["预付账款", "176,036,038.27", "-5,000,000.00", "171,036,038.27"],
+    ["其他应收款", "134,080,162.83", "28,603,217.75", "162,683,380.58"]
+  ]
+}
