@@ -41,7 +41,14 @@ MINERU_HOME=/test/Finagent/mineru_home MINERU_MODEL_SOURCE=modelscope \
 - 许可证为 Apache 2.0 加附加条款（月活过亿或月收入超 2,000 万美元需商业许可；对第三方提供在线服务须标明使用 MinerU），2026-10-13 按 4.0.12 的 LICENSE.md 核对。
 - **只用 `mineru-kit parse` 做本地解析，不带 `--remote`**：该选项会把文件上传到 mineru.net。另一个命令 `mineru` 是带文档库、后台服务与使用统计的客户端，本项目不使用，也未启动其服务。
 - MinerU 4.x 的命令与 2.x 不同（没有 `mineru[core]`，也没有 `-b pipeline`）；表格以 HTML 加整表位置框输出，不含单元格位置，单元格到原文字符位置的映射由 `src/data/table_map.py` 完成。
-- 2026-10-13：安装完成，模型下载已启动；本地解析尚未在真实年报页上跑通，跑通后在此补充解析命令。
+- 解析命令（2026-10-13 已在真实年报页上跑通，3 页约 14 秒）：
+
+```bash
+MINERU_HOME=/test/Finagent/mineru_home MINERU_MODEL_SOURCE=modelscope \
+  .venv-mineru/bin/mineru-kit parse <文件.pdf> -o <输出目录> -p <页码范围> -f middle_json --tier standard
+```
+
+  输出 `<输出目录>/<文件名>.json`（`docvortex.middle` 格式），交给 `src.data.table_map.map_parsed_tables` 做原文映射。模型约 2 GB，在 `/test/Finagent/mineru_home/models`。
 
 ## 不在 Git 中的资产
 

@@ -150,3 +150,36 @@ def map_table(cells: list[Cell], numbers: list[NumberSpan]) -> dict:
         'unmapped_numbers': [{'text': n.text, 'start': n.start, 'end': n.end}
                              for i, n in enumerate(numbers) if i not in used_numbers],
     }
+
+
+def map_parsed_tables(document, middle: dict) -> list[dict]:
+    """Map every table of a MinerU ``docvortex.middle`` result onto ``document``.
+
+    ``document`` is an open ``pypdfium2.PdfDocument`` of the parsed file.  Block
+    boxes are fractions of the page with a top-left origin; PDFium boxes are in
+    points with a bottom-left origin.
+    """
+    if middle.get('schema') != 'docvortex.middle':
+        raise ValueError('unsupported layout parser output')
+    tables = []
+    for parsed in middle['pages']:
+        page = document[parsed['page_idx']]
+        width, height = page.get_size()
+        textpage = page.get_textpage()
+        text = textpage.get_text_bounded()
+        for block in parsed['blocks']:
+            if block['type'] != 'table':
+                continue
+            for part in block['content']:
+                if part['type'] != 'table_body':
+                    continue
+                left, top, right, bottom = part['bbox']
+                box = (left * width, (1 - bottom) * height, right * width, (1 - top) * height)
+                cells = table_cells(part['content'])
+                result = map_table(cells, page_numbers(textpage, text, box))
+                tables.append({'pdf_page': parsed['page_idx'] + 1, 'block_index': block['index'],
+                               'continues_previous': bool(block.get('continues_prev')),
+                               'box': list(box), 'cells': len(cells), **result})
+        textpage.close()
+        page.close()
+    return tables
