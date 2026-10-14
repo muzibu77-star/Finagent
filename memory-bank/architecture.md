@@ -52,6 +52,12 @@
 
 ### 评测工具
 
+- `src/model/api_client.py`：计量的 API 客户端。应答按请求哈希缓存到文件（重跑不重复计费），按高峰价累计花费，预算用尽后拒绝新请求；密钥只从被忽略的 `.env` 读取。
+- `src/evaluation/draft_pilot.py`：试点入口。让模型按年报合并报表原文（或不给原文）写点评，再由代码检查文中每个金额与百分比能否在该年报的事实中找到依据。
+- `src/evaluation/splits.py`：按行业交错把 30 家发行人划为训练、开发、验收三部分并写入 `configs/issuer_splits.json`；文件已存在时拒绝覆盖。
+- `src/evaluation/freeze_set.py`：按发行人划分冻结评测集：训练保留全部种子，开发与验收每类错误取固定条数；模型稿件整篇保留并附代码判定的弱标签；写出带哈希的 `lock.json`，目录已存在时拒绝写入。
+- `src/evaluation/seed_claims.py`：评测集的种子。从出处库中合并三大报表、同一行同时有本年与上年数的事实，按模板生成正确断言（金额换算为亿元的直接引用、同比增速），再各做一次有记录的改动得到错误断言（E1 改数字、E2 改单位、E3 上年数当本年、E4 母公司数当合并数、E5 增速分母用错、E9 同一指标前后两个数不同），另从国常会新闻稿生成日期断言及 E7 日期错误；每条带数值在句中的位置、所依据的事实编号和应有的值。句子是模板，只检验核查逻辑，不代表真实稿件的写法。
+
 - `src/evaluation/statistics.py`、`src/evaluation/compare_agent_runs.py`：按发行人聚类的配对 bootstrap 区间。
 - `src/evaluation/serving_benchmark.py`：TTFT、端到端时延与吞吐测量。
 

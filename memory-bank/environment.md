@@ -94,6 +94,8 @@ nohup setsid .venv/bin/python -m src.data.parse_reports --output-dir data/staged
 | `data/raw/policy/` | 政策文件与统计发布 1,855 篇的原始网页和正文（206 MB），清单见 `configs/policy_sources.json`，用 `python -m src.data.policy_sources` 重新获取 |
 | `/test/Finagent/mineru_home/` | MinerU 模型与配置 |
 | `data/staged/cninfo_parsed_v1/` | 年报的 MinerU 解析结果（全量解析任务的输出） |
+| `data/staged/seed_claims_v1.jsonl`、`data/staged/eval_v1/` | 种子断言与冻结的评测集（含 `lock.json`）；模型稿件的原始输出与 API 应答缓存在 `artifacts/stage2_drafts_v1/`，重跑命中缓存不再计费 |
+| `.env` | DeepSeek API 密钥（`DEEPSEEK_API_KEY`），权限 600，不进 Git |
 | `data/staged/library_v2/` | 出处库 `library.sqlite`（约 438 MB）与收据；由 `python -m src.data.library --output-dir <新目录>` 从上面各项重建，约 6 分钟，不需要 GPU |
 
 原始 PDF 仅作本地研究与必要引用，不随仓库再分发。移机时须一并恢复上表资产，仅 clone 仓库不能运行。
