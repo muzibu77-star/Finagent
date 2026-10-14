@@ -1,6 +1,7 @@
 import unittest
 
-from src.data.table_facts import DECLARED, context, grid, header_rows, scope, stated_unit
+from src.data.table_facts import (DECLARED, context, grid, header_rows, note_number, scope,
+                                   stated_unit)
 from src.data.table_map import table_cells
 
 
@@ -72,6 +73,27 @@ class TableFactsTest(unittest.TestCase):
         self.assertEqual(scope('母公司利润表', '本期发生额'), '母公司')
         self.assertEqual(scope('合并利润表', '本期发生额'), '合并')
         self.assertIsNone(scope('应收账款', '期末余额'))
+
+    def test_note_numbers_under_a_merged_header(self):
+        self.assertTrue(note_number('2023年12月31日 附注五', '42'))
+        self.assertFalse(note_number('2023年12月31日 附注五', '1,234'))
+        self.assertFalse(note_number('2023年12月31日', '42'))
+
+    def test_title_as_document_title_with_unit_heading_after_it(self):
+        found = context([{'type': 'doc_title', 'content': [{'type': 'text', 'content': '合并资产负债表'}]},
+                         text('paragraph_title', '(除另有注明外，金额单位均为人民币元)')])
+        self.assertEqual((found['title'], found['unit']), ('合并资产负债表', '元'))
+
+    def test_title_in_running_header_and_group_columns(self):
+        found = context([{'type': 'header', 'content': [{'type': 'text', 'content': '资产负债表(续)'}]}])
+        self.assertEqual(found['title'], '资产负债表(续)')
+        self.assertEqual(scope('资产负债表', '本集团 2025年末'), '合并')
+        self.assertEqual(scope('资产负债表', '本公司 2025年末'), '母公司')
+
+    def test_unit_inside_a_long_title(self):
+        found = context([text('paragraph_title', '中国神华能源股份有限公司合并资产负债表2025 年 12 月 31 日'
+                                                 '(金额单位:人民币百万元)')])
+        self.assertEqual((found['unit'], found['unit_source']), ('百万元', 'title'))
 
 
 if __name__ == '__main__':

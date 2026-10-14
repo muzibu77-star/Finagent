@@ -44,6 +44,11 @@
 - `src/model/agent.py`：本地模型生命周期、单卡进程互斥锁、生成取消。`src/model/financial.py`：计算工具声明、证据提示与输出解析。`src/model/http_driver.py`：回环 vLLM 文本客户端。`src/evaluation/m0_inference_check.py`：生成与工具调用解析的公共函数。
 - `src/service/server.py` 与 `index.html`／`app.js`／`style.css`：回环 HTTP 服务、单 worker 队列、事件重连、取消、来源查看与报告导出。`src/service/mcp_server.py`：以 stdio 暴露范围受限的搜索、读取、计算；`skills/financial-research/SKILL.md` 经 MCP prompt 加载。
 
+### 核查
+
+- `src/verify/checker.py`：确定性核查器。输入结构化断言，按写稿日期限定可用文件、以更正公告覆盖旧数，在出处库中取对应指标与年份的合并口径数值，比较后给出一致／不一致／无依据／存疑，并对不一致判断错因。`src/evaluation/run_checker.py` 在冻结断言集上运行并汇总。
+- `src/verify/extract.py`：用模型把点评中的数字抽成结构化断言，科目必须从该年报合并报表的科目清单中选择；`src/evaluation/run_reviews.py` 串起抽取与核查并按核实标签计分，`--direct` 为“模型读原文直接审稿”的对照组。
+
 ### 训练
 
 - `src/training/m0_lora_check.py`：LoRA 训练入口，含完整状态检查点（适配器、优化器、调度器、随机数、样本游标）与恢复校验；`src/training/loss.py` 只对受监督位置计算 FP32 交叉熵；`src/training/preference_loss.py` 为 sigmoid DPO。
