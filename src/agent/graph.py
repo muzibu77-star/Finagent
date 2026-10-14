@@ -1,16 +1,24 @@
 """LangGraph orchestration that turns a draft review into a workpaper.
 
-Five nodes run in order.  A model extracts the numbers of the draft and the line
-item each one names; the deterministic checker judges every extracted claim;
-code finds numbers of one metric, year and unit written with different values
-inside the draft; a model proposes a one-sentence revision for each wrong
-number, which code accepts only if the sentence is otherwise unchanged; and code
-assembles the workpaper.  Only the two model nodes call a model, every verdict
-comes from the checker, and the revision node never changes one.
+Four nodes run in order.  A model extracts the numbers of the draft and the line
+item each one names; the deterministic checker judges every extracted claim; a
+model proposes a one-sentence revision for each wrong number, which code accepts
+only if the sentence is otherwise unchanged; and code assembles the workpaper.
+Only the model nodes call a model and only the checker settles a verdict, except
+that the optional investigate node - between the checker and the revision node -
+lets the tool agent re-open the numbers the checker handed to a person; such a
+number can only become ``inconsistent``, never ``consistent``, and the revision
+node rewrites none of them.
+
+A model node that fails - the call raises, or its answer cannot be parsed -
+never aborts the run and never settles a verdict: the numbers it did not reach
+stay in the workpaper as numbers a person has to judge, and the reason is
+written to the ``errors`` list beside the nodes that failed.
 """
 
 import argparse
 from decimal import Decimal, InvalidOperation
+from functools import partial
 import json
 from pathlib import Path
 import re
@@ -22,6 +30,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from src.agent.llm import ApiChatModel
+from src.agent.single import MEANING, investigate_draft
 from src.evaluation.draft_pilot import STATED
 from src.model.api_client import ApiClient
 from src.verify.checker import Checker
@@ -45,7 +54,7 @@ SUMMARY_LABELS = {'consistent': '一致', 'inconsistent': '不一致', 'unsuppor
 
 
 class ReviewState(TypedDict):
-    """The data carried between the five nodes of the review graph."""
+    """The data carried between the nodes of the review graph."""
 
     text: str
     code: str
@@ -54,22 +63,15 @@ class ReviewState(TypedDict):
     as_of: str
     items: list[dict]
     verdicts: dict[int, dict]
-    consistency: list[dict]
+    agents: dict[int, dict]
     suggestions: dict[int, dict]
+    errors: list[str]
     workpaper: dict
 
 
 def plain(text: str) -> str:
     """The text without digit grouping, so ``1,234.56`` and ``1234.56`` compare equal."""
     return text.replace(',', '').replace('，', '')
-
-
-def written_value(number: str):
-    """The value a written number denotes, or the plain text when it is unparsable."""
-    try:
-        return Decimal(plain(number))
-    except InvalidOperation:
-        return plain(number)
 
 
 def numbers_in(text: str) -> list[dict]:
@@ -86,40 +88,68 @@ def numbers_in(text: str) -> list[dict]:
     return found
 
 
+def written_number(number: dict) -> str:
+    """The digits of a ``numbers_in`` entry, without its unit."""
+    return number['text'][:len(number['text']) - len(number['unit'])].strip()
+
+
+def occurrence_at(text: str, number: str, start: int) -> int | None:
+    """Which occurrence of ``number`` ``locate`` counts at ``start``."""
+    for occurrence in range(1, text.count(number) + 2):
+        if locate(text, number, occurrence) == start:
+            return occurrence
+    return None
+
+
+def note(state: ReviewState, message: str) -> list[str]:
+    """The run's errors with one more entry; a failed node keeps the earlier ones."""
+    return (state.get('errors') or []) + [message]
+
+
+def handover(verdicts: dict[int, dict], text: str) -> list[dict]:
+    """The numbers the checker left to a person: missed, unsupported or ambiguous.
+
+    Each entry carries the number without its unit, its occurrence in the draft
+    and the written text, so an agent answer can be located back into the draft.
+    """
+    handed = []
+    for entry in numbers_in(text):
+        verdict = verdicts.get(entry['start'], {}).get('verdict', 'missed')
+        if verdict not in ('missed', 'unsupported', 'ambiguous'):
+            continue
+        number = written_number(entry)
+        occurrence = occurrence_at(text, number, entry['start'])
+        if occurrence is not None:
+            handed.append({'number': number, 'occurrence': occurrence,
+                           'start': entry['start'], 'text': entry['text']})
+    return handed
+
+
+def agent_note(agent: dict) -> str:
+    """The workpaper note for a number the tool agent judged."""
+    if agent['verdict'] == 'consistent':
+        return 'Agent 认为一致，仍需人工确认'
+    expected = agent.get('expected') or '未给应有值'
+    basis = f"（依据：{agent['basis']}）" if agent.get('basis') else ''
+    return f'Agent 认为有误：应为 {expected}{basis}，需人工确认'
+
+
+def sentence_span(text: str, start: int) -> tuple[int, int]:
+    """The bounds of the sentence that holds the number starting at ``start``."""
+    begin = max((text.rfind(ch, 0, start) for ch in BREAK), default=-1) + 1
+    ends = [position for ch in BREAK if (position := text.find(ch, start)) != -1]
+    end = min(ends) if ends else len(text)
+    return begin, end
+
+
 def sentence_at(text: str, start: int) -> str:
     """The sentence of the draft that holds the number starting at ``start``.
 
     The draft is split on Chinese full stops and semicolons; the break itself is
     not part of the sentence, so a revision only has to reproduce the words.
     """
-    begin = max((text.rfind(ch, 0, start) for ch in BREAK), default=-1) + 1
-    ends = [position for ch in BREAK if (position := text.find(ch, start)) != -1]
-    end = min(ends) if ends else len(text)
+    begin, end = sentence_span(text, start)
     return text[begin:end].strip()  # a paragraph break is not part of the sentence
-
-
-def intra_document(items: list[dict], text: str) -> list[dict]:
-    """Numbers of one metric, year and unit written with different values.
-
-    Claims are grouped by type, line item, fiscal year and unit; a group whose
-    members write different values names the same figure twice, so every member
-    is reported with the positions on both sides.
-    """
-    groups: dict[tuple, dict[int, str]] = {}
-    for item in items:
-        label, number = item.get('label'), str(item['number'])
-        start = locate(text, number, item.get('occurrence'))
-        if start is None or not isinstance(label, str) or not label:
-            continue
-        groups.setdefault((item.get('type'), label, item.get('year'), item.get('unit')),
-                          {})[start] = number
-    findings = []
-    for (kind, label, year, unit), seen in groups.items():
-        if len(seen) < 2 or len({written_value(number) for number in seen.values()}) < 2:
-            continue
-        findings.append({'type': kind, 'label': label, 'year': year, 'unit': unit,
-                         'positions': list(seen), 'numbers': list(seen.values())})
-    return sorted(findings, key=lambda finding: finding['positions'][0])
 
 
 def rewritten_sentence(content: str) -> str | None:
@@ -153,29 +183,38 @@ def evidence_facts(db: sqlite3.Connection, ids: list[int]) -> dict[int, dict]:
 
 
 def workpaper(checker: Checker, state: ReviewState) -> dict:
-    """One row per number of the draft: verdict, evidence, revision, consistency."""
+    """One row per number of the draft: verdict, evidence and revision."""
     verdicts, suggestions = state['verdicts'], state['suggestions']
-    findings = {position: finding for finding in state['consistency']
-                for position in finding['positions']}
+    agents = state.get('agents') or {}
     numbers = numbers_in(state['text'])
     known = evidence_facts(checker.db, [fact for verdict in verdicts.values()
                                         for fact in verdict.get('evidence', [])])
-    rows, summary = [], {key: 0 for key in SUMMARY_LABELS}
+    rows = []
+    summary = {key: 0 for key in SUMMARY_LABELS}
+    summary.update(agent_flagged=0, agent_hint_consistent=0)
     for number in numbers:
         verdict = verdicts.get(number['start'], {'verdict': 'missed'})
         summary[verdict['verdict']] += 1
-        finding = findings.get(number['start'])
+        agent = agents.get(number['start'])
+        if verdict.get('source') == 'agent':
+            source = 'agent'
+            summary['agent_flagged'] += 1
+        elif number['start'] in verdicts:
+            source = 'checker'
+        else:
+            source = ''
+        if agent and agent['verdict'] == 'consistent':
+            summary['agent_hint_consistent'] += 1
         rows.append({
             'start': number['start'], 'text': number['text'], 'verdict': verdict['verdict'],
+            'source': source, 'agent': agent,
             'error': verdict.get('error'), 'expected': verdict.get('expected'),
             'label': verdict.get('label'), 'year': verdict.get('year'),
             'type': verdict.get('type'), 'reason': verdict.get('reason', ''),
             'evidence': [known.get(fact, {'id': fact}) for fact in verdict.get('evidence', [])],
-            'suggestion': suggestions.get(number['start'], {}),
-            'consistency': {'intra_document': True, 'positions': finding['positions'],
-                            'numbers': finding['numbers']} if finding else None})
+            'suggestion': suggestions.get(number['start'], {})})
     return {'review': {key: state[key] for key in ('code', 'company', 'fiscal_year', 'as_of')},
-            'text': state['text'], 'numbers': rows,
+            'text': state['text'], 'numbers': rows, 'errors': state.get('errors') or [],
             'summary': {'numbers': len(rows), **summary}}
 
 
@@ -187,79 +226,139 @@ def workpaper_markdown(workpaper: dict) -> str:
              f"稿件数字 {summary['numbers']} 个。", '', '| 结论 | 数量 |', '|---|---|']
     for key, label in SUMMARY_LABELS.items():
         lines.append(f'| {label} | {summary.get(key, 0)} |')
-    lines += ['', '| 位置 | 原文 | 结论 | 错因 | 应有值 | 证据 | 修改建议 | 稿内一致性 |',
-              '|---|---|---|---|---|---|---|---|']
+    lines += ['', '| 位置 | 原文 | 结论 | 错因 | 应有值 | 证据 | 修改建议 |',
+              '|---|---|---|---|---|---|---|']
     for row in workpaper['numbers']:
         evidence = '；'.join(
             f"{item.get('document')} 第{item.get('page')}页 [{item.get('start')},{item.get('end')}) "
             f"{item.get('row_label')}／{item.get('column_header')}／{item.get('unit')}"
             for item in row['evidence'])
         suggestion = row['suggestion'].get('sentence') or row['suggestion'].get('note', '')
-        finding = row['consistency']
-        consistency = ('稿内不一致：同一指标另写作 ' + '、'.join(finding['numbers'])
-                       if finding else '')
-        lines.append('| {} | {} | {} | {} | {} | {} | {} | {} |'.format(
+        if row.get('agent'):
+            suggestion = agent_note(row['agent'])
+        lines.append('| {} | {} | {} | {} | {} | {} | {} |'.format(
             row['start'], row['text'], SUMMARY_LABELS.get(row['verdict'], row['verdict']),
-            row['error'] or row['reason'], row['expected'] or '', evidence, suggestion, consistency))
+            row['error'] or row['reason'], row['expected'] or '', evidence, suggestion))
     return '\n'.join(lines) + '\n'
 
 
-def build_graph(checker: Checker, llm) -> CompiledStateGraph:
-    """The five-node review graph over ``ReviewState``."""
+def build_graph(checker: Checker, llm, *, investigator=None) -> CompiledStateGraph:
+    """The review graph over ``ReviewState``.
+
+    ``investigator`` is called as ``investigator(draft, handed)`` for the numbers
+    the checker left to a person; ``None`` leaves its node out, so the graph is
+    the four-node flow without the tool agent.
+    """
     db = checker.db
 
     def extract(state: ReviewState) -> dict:
         labels = line_items(db, state['code'], state['fiscal_year'])
         prompt = PROMPT.format(company=state['company'], year=state['fiscal_year'],
                                labels='\n'.join(labels) or '（无）', review=state['text'])
-        return {'items': parse(llm.invoke([HumanMessage(content=prompt)]).content)}
+        try:
+            answer = llm.invoke([HumanMessage(content=prompt)]).content
+        except Exception as error:  # a failed extraction leaves every number to a person
+            return {'items': [],
+                    'errors': note(state, f'extract failed: {type(error).__name__}: {error}')}
+        items = parse(answer)
+        if not items:
+            return {'items': [],
+                    'errors': note(state, f'unparsable extract answer: {answer[:200]!r}')}
+        return {'items': items}
 
     def check(state: ReviewState) -> dict:
         return {'verdicts': judge(checker, state['text'], state['items'], state['code'],
                                   state['as_of'])}
 
-    def consistency(state: ReviewState) -> dict:
-        return {'consistency': intra_document(state['items'], state['text'])}
+    def investigate(state: ReviewState) -> dict:
+        handed = handover(state['verdicts'], state['text'])
+        if not handed:
+            return {}
+        draft = {key: state[key] for key in ('text', 'code', 'company', 'fiscal_year', 'as_of')}
+        try:
+            run = investigator(draft, handed)
+        except Exception as error:  # every checker verdict survives an agent failure
+            return {'errors': note(state, f'investigate failed: {type(error).__name__}: {error}')}
+        if not run['items']:
+            return {'errors': note(state,
+                                   f'unparsable investigate answer: {run["answer"][:200]!r}')}
+        positions = {entry['start'] for entry in handed}
+        verdicts, agents = dict(state['verdicts']), {}
+        for item in run['items']:
+            start = locate(state['text'], str(item.get('number')), item.get('occurrence'))
+            if start is None or start not in positions or start in agents:
+                continue
+            agent_verdict = MEANING.get(item.get('verdict'))
+            if agent_verdict not in ('consistent', 'inconsistent'):
+                continue
+            agents[start] = {'verdict': agent_verdict, 'expected': item.get('expected') or None,
+                             'basis': item.get('basis') or None}
+            if agent_verdict == 'inconsistent':
+                previous = verdicts.get(start, {})
+                verdicts[start] = {'verdict': 'inconsistent', 'source': 'agent',
+                                   'expected': agents[start]['expected'],
+                                   'label': previous.get('label'), 'year': previous.get('year'),
+                                   'type': previous.get('type'), 'error': None, 'reason': '',
+                                   'evidence': previous.get('evidence', [])}
+        return {'verdicts': verdicts, 'agents': agents}
 
     def revise(state: ReviewState) -> dict:
-        suggestions = {}
+        suggestions, errors = {}, state.get('errors') or []
         for item in state['items']:
             number = str(item['number'])
             start = locate(state['text'], number, item.get('occurrence'))
             verdict = state['verdicts'].get(start)
-            if not verdict or verdict['verdict'] != 'inconsistent' or not verdict.get('expected'):
+            if (not verdict or verdict['verdict'] != 'inconsistent'
+                    or verdict.get('source') == 'agent' or not verdict.get('expected')):
                 continue
             sentence = sentence_at(state['text'], start)
-            answer = llm.invoke([HumanMessage(content=REVISE.format(
-                number=number, expected=verdict['expected'], sentence=sentence))])
+            try:
+                answer = llm.invoke([HumanMessage(content=REVISE.format(
+                    number=number, expected=verdict['expected'], sentence=sentence))])
+            except Exception as error:  # one failed rewrite leaves that number to a person
+                suggestions[start] = {'accepted': False, 'sentence': None, 'note': '需人工改写'}
+                errors = errors + [f'revise failed: {type(error).__name__}: {error}']
+                continue
             rewritten = rewritten_sentence(answer.content)
             wanted = sentence.replace(number, verdict['expected'])
             if rewritten is not None and plain(rewritten) == plain(wanted):
                 suggestions[start] = {'accepted': True, 'sentence': rewritten}
             else:
                 suggestions[start] = {'accepted': False, 'sentence': None, 'note': '需人工改写'}
-        return {'suggestions': suggestions}
+        return {'suggestions': suggestions, 'errors': errors}
 
     def report(state: ReviewState) -> dict:
         return {'workpaper': workpaper(checker, state)}
 
+    ordered = [('extract', extract), ('check', check)]
+    if investigator is not None:
+        ordered.append(('investigate', investigate))
+    ordered += [('revise', revise), ('report', report)]
     graph = StateGraph(ReviewState)
-    for name, node in (('extract', extract), ('check', check), ('consistency', consistency),
-                       ('revise', revise), ('report', report)):
+    for name, node in ordered:
         graph.add_node(name, node)
-    for before, after in ((START, 'extract'), ('extract', 'check'), ('check', 'consistency'),
-                          ('consistency', 'revise'), ('revise', 'report'), ('report', END)):
+    graph.add_edge(START, ordered[0][0])
+    for (before, _), (after, _) in zip(ordered, ordered[1:]):
         graph.add_edge(before, after)
+    graph.add_edge(ordered[-1][0], END)
     return graph.compile()
 
 
 def review_draft(draft: dict, *, library: Path, model: str, url: str, budget_usd: float,
-                 cache: Path) -> dict:
+                 cache: Path, investigate: bool = True) -> dict:
     """Run the review graph on one draft (``text``, ``code``, ``company``, ``fiscal_year``,
-    ``as_of``) and return its workpaper."""
+    ``as_of``) and return its workpaper.
+
+    With ``investigate`` the tool agent re-opens the numbers the checker handed
+    to a person; without it the graph is the four-node flow without the agent.
+    """
     checker = Checker(sqlite3.connect(f'file:{library}?mode=ro', uri=True))
     llm = ApiChatModel(client=ApiClient(model, budget_usd, Path(cache), url=url))
-    state = build_graph(checker, llm).invoke(
+    investigator = None
+    if investigate:
+        investigator = partial(investigate_draft, library=Path(library), model=model, url=url,
+                               budget_usd=budget_usd, cache=Path(cache))
+    state = build_graph(checker, llm, investigator=investigator).invoke(
         {key: draft[key] for key in ('text', 'code', 'company', 'fiscal_year', 'as_of')})
     return state['workpaper']
 

@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>研报点评预审</title>
+<style>
+  :root { color-scheme: light; }
+  body { font: 14px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+         margin: 0 auto; max-width: 1080px; padding: 24px; color: #1f2328; }
+  h1 { font-size: 20px; margin: 0 0 16px; }
+  form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;
+         border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+  label { display: block; font-weight: 600; margin-bottom: 4px; }
+  select, input, textarea, button { font: inherit; width: 100%; box-sizing: border-box;
+         padding: 6px 8px; border: 1px solid #d0d7de; border-radius: 6px; background: #fff; }
+  textarea { min-height: 220px; resize: vertical; }
+  .wide { grid-column: 1 / -1; }
+  button { background: #1f6feb; color: #fff; border-color: #1f6feb; font-weight: 600;
+           cursor: pointer; padding: 8px; }
+  button[disabled] { opacity: .6; cursor: progress; }
+  #status { min-height: 22px; color: #57606a; }
+  #errors { display: none; border: 1px solid #f85149; background: #ffebe9; color: #a40e26;
+            border-radius: 6px; padding: 10px 12px; margin: 16px 0; white-space: pre-wrap; }
+  #summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+  #summary span { border: 1px solid #d0d7de; border-radius: 999px; padding: 2px 10px; }
+  #draft { border: 1px solid #d0d7de; border-radius: 6px; padding: 12px;
+           white-space: pre-wrap; margin-bottom: 16px; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #d0d7de; padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: #f6f8fa; }
+  tr.flash { background: #fff8c5; }
+  .num { cursor: pointer; border-radius: 3px; padding: 0 2px; }
+  .consistent { background: #dafbe1; }
+  .inconsistent { background: #ffebe9; }
+  .unsupported { background: #fff1e5; }
+  .ambiguous { background: #fff8c5; }
+  .missed { background: #eaeef2; }
+  #downloads a { margin-right: 16px; }
+</style>
+</head>
+<body>
+<h1>研报点评预审</h1>
+<form id="form">
+  <div>
+    <label for="issuer">发行人</label>
+    <select id="issuer" required></select>
+  </div>
+  <div>
+    <label for="year">财年</label>
+    <select id="year" required></select>
+  </div>
+  <div>
+    <label for="as-of">写稿截止日</label>
+    <input id="as-of" type="date" required>
+  </div>
+  <div>
+    <label for="model">模型</label>
+    <select id="model">
+      <option value="deepseek-flash">deepseek-flash</option>
+      <option value="qwen3.5-9b-extract">qwen3.5-9b-extract（本机）</option>
+    </select>
+  </div>
+  <div class="wide">
+    <label for="text">稿件正文</label>
+    <textarea id="text" required placeholder="粘贴待核查的点评全文"></textarea>
+  </div>
+  <div class="wide"><button id="submit" type="submit">开始核查</button></div>
+</form>
+
+<p id="status"></p>
+<div id="errors"></div>
+<div id="summary"></div>
+<div id="draft"></div>
+<table id="table" hidden><thead><tr>
+  <th>原文</th><th>结论</th><th>来源</th><th>错因</th><th>应有值</th><th>出处</th><th>修改建议</th>
+</tr></thead><tbody></tbody></table>
+<p id="downloads"></p>
+
+<script>
+const LABELS = {consistent: '一致', inconsistent: '不一致', unsupported: '无依据',
+                ambiguous: '存疑', missed: '抽取遗漏需人工'};
+const SOURCES = {checker: '核查器', agent: 'Agent'};
+let issuers = [];
+
+const $ = (id) => document.getElementById(id);
+const escapeHtml = (text) => text.replace(/[&<>"]/g, (ch) =>
+  ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[ch]));
+
+async function loadIssuers() {
+  const response = await fetch('/api/issuers');
+  issuers = await response.json();
+  const select = $('issuer');
+  select.innerHTML = '<option value="">请选择</option>' + issuers.map((entry) =>
+    `<option value="${escapeHtml(entry.code)}">${escapeHtml(entry.publisher)}` +
+    `（${escapeHtml(entry.code)}）</option>`).join('');
+  select.onchange = fillYears;
+}
+
+function fillYears() {
+  const entry = issuers.find((item) => item.code === $('issuer').value);
+  const years = entry ? entry.reports : [];
+  $('year').innerHTML = years.map((report) =>
+    `<option value="${report.fiscal_year}">${report.fiscal_year}（年报 ${report.published} 披露）` +
+    '</option>').join('');
+  if (years.length) $('as-of').value = years[years.length - 1].published;
+}
+
+function renderSummary(summary) {
+  const parts = Object.keys(LABELS).map((key) =>
+    `<span>${LABELS[key]} ${summary[key] || 0}</span>`);
+  parts.push(`<span>Agent 标出 ${summary.agent_flagged || 0}</span>`);
+  parts.push(`<span>Agent 认为一致 ${summary.agent_hint_consistent || 0}</span>`);
+  $('summary').innerHTML = parts.join('');
+}
+
+function renderDraft(text, rows) {
+  const ordered = [...rows].sort((a, b) => a.start - b.start);
+  let html = '', cursor = 0;
+  for (const row of ordered) {
+    const end = row.start + row.text.length;
+    if (row.start < cursor) continue;
+    html += escapeHtml(text.slice(cursor, row.start));
+    html += `<span class="num ${row.verdict}" data-start="${row.start}"` +
+            ` title="${LABELS[row.verdict] || row.verdict}">${escapeHtml(row.text)}</span>`;
+    cursor = end;
+  }
+  $('draft').innerHTML = html + escapeHtml(text.slice(cursor));
+  for (const span of $('draft').querySelectorAll('.num')) {
+    span.onclick = () => highlight(Number(span.dataset.start));
+  }
+}
+
+function highlight(start) {
+  const row = document.querySelector(`tr[data-start="${start}"]`);
+  if (!row) return;
+  row.scrollIntoView({behavior: 'smooth', block: 'center'});
+  row.classList.add('flash');
+  setTimeout(() => row.classList.remove('flash'), 1500);
+}
+
+function agentNote(agent) {
+  if (agent.verdict === 'consistent') return 'Agent 认为一致，仍需人工确认';
+  const basis = agent.basis ? `（依据：${agent.basis}）` : '';
+  return `Agent 认为有误：应为 ${agent.expected || '未给应有值'}${basis}，需人工确认`;
+}
+
+function renderTable(rows) {
+  $('table').querySelector('tbody').innerHTML = rows.map((row) => {
+    const evidence = row.evidence.map((item) =>
+      `${item.document || ''} 第${item.page}页`).join('；');
+    const suggestion = row.agent ? agentNote(row.agent)
+      : (row.suggestion.sentence || row.suggestion.note || '');
+    return `<tr data-start="${row.start}"><td>${escapeHtml(row.text)}</td>` +
+      `<td>${LABELS[row.verdict] || row.verdict}</td>` +
+      `<td>${SOURCES[row.source] || ''}</td>` +
+      `<td>${escapeHtml(row.error || row.reason || '')}</td>` +
+      `<td>${escapeHtml(row.expected || '')}</td>` +
+      `<td>${escapeHtml(evidence)}</td>` +
+      `<td>${escapeHtml(suggestion)}</td></tr>`;
+  }).join('');
+  $('table').hidden = rows.length === 0;
+}
+
+async function submit(event) {
+  event.preventDefault();
+  const button = $('submit');
+  button.disabled = true;
+  $('status').textContent = '正在核查，请稍候……';
+  $('errors').style.display = 'none';
+  $('summary').innerHTML = '';
+  $('draft').innerHTML = '';
+  $('downloads').innerHTML = '';
+  try {
+    const response = await fetch('/api/review', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({code: $('issuer').value, fiscal_year: Number($('year').value),
+                            as_of: $('as-of').value, text: $('text').value,
+                            model: $('model').value}),
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      $('status').textContent = body.error || '核查失败';
+      return;
+    }
+    const paper = body.workpaper;
+    $('status').textContent = '稿内数字 ' + paper.summary.numbers + ' 个';
+    if (paper.errors.length) {
+      $('errors').textContent = '以下步骤失败，相关数字已交人工：\n' + paper.errors.join('\n');
+      $('errors').style.display = 'block';
+    }
+    renderSummary(paper.summary);
+    renderDraft(paper.text, paper.numbers);
+    renderTable(paper.numbers);
+    $('downloads').innerHTML =
+      `<a href="/api/workpapers/${body.id}.json" download>下载底稿 JSON</a>` +
+      `<a href="/api/workpapers/${body.id}.md" download>下载底稿 Markdown</a>`;
+  } catch (error) {
+    $('status').textContent = '请求失败：' + error;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+$('form').onsubmit = submit;
+loadIssuers();
+</script>
+</body>
+</html>

@@ -7,6 +7,7 @@ never written to a log, cache or receipt.
 """
 
 import hashlib
+from http.client import HTTPException
 import json
 from pathlib import Path
 import threading
@@ -68,20 +69,28 @@ class ApiClient:
             except HTTPError as error:
                 if error.code not in (429, 500, 502, 503) or attempt == 4:
                     raise
-            except OSError:
+            except (OSError, HTTPException):  # dropped connections, timeouts, truncated replies
                 if attempt == 4:
                     raise
             time.sleep(10 * attempt)
         raise AssertionError('unreachable')
 
-    def chat(self, messages: list[dict], max_tokens: int, thinking: bool = False) -> dict:
-        """One completion: ``{'content', 'finish_reason', 'usage', 'cost_usd'}``."""
+    def chat(self, messages: list[dict], max_tokens: int, thinking: bool = False,
+             tools: list | None = None) -> dict:
+        """One completion: ``{'content', 'tool_calls', 'finish_reason', 'usage', 'cost_usd'}``.
+
+        ``tools`` is an OpenAI-format tool list; it is left out of the request
+        body entirely when empty or omitted, so requests made without tools
+        keep the same hash and their answers keep hitting the existing cache.
+        """
         body = {'model': self.model, 'messages': messages, 'max_tokens': max_tokens}
         if self.local:
             # Qwen chat templates switch thinking on and off through the template.
             body.update(temperature=0, chat_template_kwargs={'enable_thinking': thinking})
         else:
             body['thinking'] = {'type': 'enabled' if thinking else 'disabled'}
+        if tools:
+            body['tools'] = tools
         digest = hashlib.sha256(json.dumps(body, sort_keys=True, ensure_ascii=False)
                                 .encode()).hexdigest()
         if digest in self.answers:
@@ -95,6 +104,7 @@ class ApiClient:
                 + usage['completion_tokens'] * price['output']) / 1_000_000
         row = {'request_sha256': digest, 'model': self.model,
                'content': choice['message'].get('content') or '',
+               'tool_calls': choice['message'].get('tool_calls'),
                'finish_reason': choice['finish_reason'],
                'usage': {k: usage[k] for k in ('prompt_tokens', 'completion_tokens')},
                'cost_usd': cost}

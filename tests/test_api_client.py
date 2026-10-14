@@ -1,3 +1,5 @@
+import hashlib
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -63,6 +65,44 @@ class ApiClientTest(unittest.TestCase):
         self.assertNotIn('thinking', sent[0])
         with self.assertRaises(ValueError):
             ApiClient('qwen3.5-9b', 0.0, self.cache, url='https://example.com/v1', send=lambda b: answer())
+
+    def test_tools_ride_along_and_untooled_requests_keep_the_older_hash(self):
+        messages = [{'role': 'user', 'content': 'a'}]
+        tools = [{'type': 'function', 'function': {'name': 'f', 'parameters': {}}}]
+        client = self.client(1.0)
+        client.chat(messages, 8, tools=tools)
+        self.assertEqual(self.sent[0]['tools'], tools)
+        client.chat(messages, 8)
+        self.assertNotIn('tools', self.sent[1])
+        # A request without tools hashes exactly as it did before tools existed,
+        # so the caches written by the extraction runs still answer it.
+        body = {'model': 'deepseek-flash', 'messages': messages, 'max_tokens': 8,
+                'thinking': {'type': 'disabled'}}
+        digest = hashlib.sha256(json.dumps(body, sort_keys=True, ensure_ascii=False)
+                                .encode()).hexdigest()
+        self.assertIn(digest, [json.loads(line)['request_sha256']
+                               for line in self.cache.read_text().splitlines()])
+        again = self.client(1.0)
+        again.chat(messages, 8)
+        self.assertEqual(len(self.sent), 2)
+
+    def test_tool_calls_are_kept_with_the_answer(self):
+        calls = [{'id': 'call_1', 'type': 'function',
+                  'function': {'name': 'f', 'arguments': '{}'}}]
+        response = answer()
+        response['choices'][0]['message']['tool_calls'] = calls
+        row = self.client(1.0, response).chat([{'role': 'user', 'content': 'a'}], 8)
+        self.assertEqual(row['tool_calls'], calls)
+        self.assertEqual(json.loads(self.cache.read_text().splitlines()[0])['tool_calls'], calls)
+
+    def test_an_answer_cached_before_tools_existed_carries_no_tool_calls(self):
+        headless = {'request_sha256': 'x', 'model': 'deepseek-flash', 'content': '好',
+                    'finish_reason': 'stop',
+                    'usage': {'prompt_tokens': 1, 'completion_tokens': 1}, 'cost_usd': 0.0}
+        self.cache.write_text(json.dumps(headless) + '\n')
+        client = self.client(1.0)
+        self.assertEqual(client.spent, 0.0)
+        self.assertIsNone(client.answers['x'].get('tool_calls'))
 
     def test_extract_local_model_is_free(self):
         client = ApiClient('qwen3.5-9b-extract', 0.0, self.cache,

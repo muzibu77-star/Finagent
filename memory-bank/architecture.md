@@ -4,7 +4,7 @@
 
 ## 现状一句话
 
-阶段 1 的出处库已建成：原始披露文件 → 版面解析 → 与 PDF 文本层逐一对照的表格事实 → 可按数字和截止日查询的资料库。阶段 2 的评测集已冻结、阶段 3 的免训练核查基线可用（见“核查”）；阶段 4 训练出可本地部署的 Qwen3.5-9B LoRA 抽取模型；阶段 5 的 LangGraph 核查流程与工作底稿已有初版（见“编排与底稿”），服务页面与 MCP 工具尚未开始。旧英文财报问答路线（执行与服务、检索、模型驱动、样本准备）已于 2026-10-14 删除，训练只保留核查任务的 LoRA 入口。
+阶段 1 的出处库已建成：原始披露文件 → 版面解析 → 与 PDF 文本层逐一对照的表格事实 → 可按数字和截止日查询的资料库。阶段 2 的评测集已冻结、阶段 3 的免训练核查基线可用（见“核查”）；阶段 4 训练出可本地部署的 Qwen3.5-9B LoRA 抽取模型；阶段 5 的 LangGraph 核查流程、复查 Agent、工作底稿、审核页面与 MCP 工具已完成（见“编排与底稿”）；阶段 6 验收已按写定协议完成。旧英文财报问答路线（执行与服务、检索、模型驱动、样本准备）已于 2026-10-14 删除，训练只保留核查任务的 LoRA 入口。
 
 **出处库的数据流**：`cninfo_reports`（年报与更正公告）、`policy_sources`（政策与统计发布）下载并记录披露日与哈希 → `parse_reports` 调 MinerU 得到版面与表格 → `table_map` 把表格数字对回 PDF 文本层的字符位置 → `table_facts` 绑定行标签、列表头、单位等 → `library` 写入 SQLite 并提供查询。
 
@@ -32,7 +32,9 @@
 ### 编排与底稿
 
 - `src/agent/llm.py`：LangChain `BaseChatModel` 适配器，内部沿用 `ApiClient` 的缓存、计价、预算与本地模型规则（DeepSeek API 或本机 vLLM 均可）。
-- `src/agent/graph.py`：LangGraph 五节点流程 extract（抽取 Agent）→ check（核查器）→ consistency（稿内一致性，代码）→ revise（修订 Agent，只写改写建议，代码核对改写句除该数字外不变，否则标“需人工改写”）→ report（工作底稿：每个数字的结论、错因、应有值、出处文件页码与字符区间、修改建议；另有 Markdown 版）。结论只来自核查器，模型节点不能改变结论。入口 `review_draft()` 与 `python -m src.agent.graph`。
+- `src/agent/graph.py`：LangGraph 五节点流程 extract（抽取 Agent，只看稿件与科目清单）→ check（确定性核查器）→ investigate（复查 Agent：对核查器交给人工的数字用工具检索与计算，**只能把数字标为不一致、不能判一致**，判“正确”只作提示）→ consistency（稿内一致性，代码；排除季度／分部措辞，按措辞分组）→ revise（修订 Agent：只为核查器判不一致的数字写改写句，代码核对除该数字外逐字不变，否则标“需人工改写”）→ report（工作底稿：每个数字的结论、来源〔核查器／Agent〕、错因、应有值、出处文件页码与字符区间、修改建议或 Agent 依据、模型节点的错误；另有 Markdown 版）。模型节点失败不抛出：抽取失败时全部数字交给人，其他节点失败只记 `errors`。入口 `review_draft()` 与 `python -m src.agent.graph`。稿内一致性节点曾实现，因真实稿件上 0／19 正确于 2026-10-15 移除。
+- `src/agent/single.py`：ReAct 工具 Agent（`create_react_agent`），四个受限工具：`find_number`、`search_pages`（限定发行人与写稿截止日）、`page_text`（拒绝截止日后披露的文件）、`calculate`（AST＋Decimal，无 `eval`）。既是“单 Agent 直接审稿”对照组，也是 investigate 节点的实现。
+- `src/service/app.py`＋`index.html`：本机审核页面（127.0.0.1:18100，同一时间只跑一篇，参数校验返回 400，底稿 JSON／Markdown 下载）。`src/service/mcp_server.py`：stdio MCP 服务，工具 `check_draft`、`find_number`、`search_pages`、`page_text`。
 
 ### 训练
 
@@ -48,6 +50,7 @@
 - `src/evaluation/draft_pilot.py`：试点入口。让模型按年报合并报表原文（或不给原文）写点评，再由代码检查文中每个金额与百分比能否在该年报的事实中找到依据。
 - `src/evaluation/splits.py`：按行业交错把 30 家发行人划为训练、开发、验收三部分并写入 `configs/issuer_splits.json`；文件已存在时拒绝覆盖。
 - `src/evaluation/freeze_set.py`：按发行人划分冻结评测集：训练保留全部种子，开发与验收每类错误取固定条数；模型稿件整篇保留并附代码判定的弱标签；写出带哈希的 `lock.json`，目录已存在时拒绝写入。
+- `src/evaluation/run_graph.py`：在稿件集上逐篇运行完整流程并按核实标签计分（含 Agent 来源的真值拆分）；`src/evaluation/run_single.py`：单 Agent 对照组的同口径计分；`src/evaluation/paired_bootstrap.py`：两次运行按点评篇配对重抽的差值区间。
 - `src/evaluation/review_labels.py`：逐数字人工核实的离线辅助模块，不自动选择指标或推断金标。按点评精度以 Decimal 比较、记录推导算式和每个操作数的事实编号或原页字符区间，验证覆盖、出处和算式一致性；支持明确的上下限断言与冻结抽取遗漏中文千分位的完整原句证据。核实结果在 `data/staged/eval_v2_labels/`，与冻结输入和出处库分开；`summary.json` 明示尚未完成的部分，只有完整首遍和固定种子 10% 独立盲审达标后才视为完成。用户另行批准的无文本层 PDF 页例外使用 `evidence/` 下截图及页码、像素坐标，不伪造字符区间。
 - `src/evaluation/seed_claims.py`：评测集的种子。从出处库中合并三大报表、同一行同时有本年与上年数的事实，按模板生成正确断言（金额换算为亿元的直接引用、同比增速），再各做一次有记录的改动得到错误断言（E1 改数字、E2 改单位、E3 上年数当本年、E4 母公司数当合并数、E5 增速分母用错、E9 同一指标前后两个数不同），E8 注明不含该数字的旧年报为出处；另从国常会新闻稿生成日期断言及 E7 日期错误，从复核过的更正案例生成 E6（更正后仍引用旧值）。报表未绑定的发行人改用“主要会计数据”表；每条带数值在句中的位置、所依据的事实编号和应有的值。句子是模板，只检验核查逻辑，不代表真实稿件的写法。
 

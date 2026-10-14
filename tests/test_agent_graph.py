@@ -1,14 +1,19 @@
-"""Tests for the LangGraph review graph: extract, check, consistency, revise, report."""
+"""Tests for the LangGraph review graph: extract, check, investigate, revise, report."""
 
 import json
+from pathlib import Path
 import sqlite3
+import tempfile
 import unittest
 
 from langchain_core.language_models.fake_chat_models import FakeMessagesListChatModel
 from langchain_core.messages import AIMessage
 
-from src.agent.graph import build_graph, numbers_in, sentence_at, workpaper_markdown
+from src.agent.llm import ApiChatModel
+from src.agent.graph import (build_graph, handover, numbers_in, sentence_at,
+                             workpaper_markdown)
 from src.data.library import SCHEMA, digits
+from src.model.api_client import ApiClient
 from src.verify.checker import Checker
 
 
@@ -43,11 +48,31 @@ ITEMS = [
 ]
 REVISION = '{"sentence": "2024年营业收入1,741.44亿元"}'
 
-
 def run(*replies: str) -> dict:
     """The workpaper of one fake-model run: the extraction answer then the revisions."""
     llm = FakeMessagesListChatModel(responses=[AIMessage(content=reply) for reply in replies])
     state = build_graph(build(), llm).invoke(
+        {'text': TEXT, 'code': '600000', 'company': '某公司', 'fiscal_year': 2024,
+         'as_of': '2025-04-30'})
+    return state['workpaper']
+
+
+def agent(items: list[dict]):
+    """A stand-in investigate node that answers with ``items`` and records its calls."""
+    calls: list = []
+
+    def investigate(draft: dict, handed: list[dict]) -> dict:
+        calls.append((draft, handed))
+        return {'items': items, 'answer': json.dumps(items, ensure_ascii=False)}
+
+    investigate.calls = calls
+    return investigate
+
+
+def run_investigated(investigator, *replies: str) -> dict:
+    """The workpaper of one fake-model run whose investigate node is stubbed."""
+    llm = FakeMessagesListChatModel(responses=[AIMessage(content=reply) for reply in replies])
+    state = build_graph(build(), llm, investigator=investigator).invoke(
         {'text': TEXT, 'code': '600000', 'company': '某公司', 'fiscal_year': 2024,
          'as_of': '2025-04-30'})
     return state['workpaper']
@@ -68,7 +93,9 @@ class ReviewGraphTest(unittest.TestCase):
     def test_summary_counts_every_verdict(self):
         paper = run(json.dumps(ITEMS, ensure_ascii=False), REVISION)
         self.assertEqual(paper['summary'], {'numbers': 3, 'consistent': 1, 'inconsistent': 1,
-                                            'unsupported': 1, 'ambiguous': 0, 'missed': 0})
+                                            'unsupported': 1, 'ambiguous': 0, 'missed': 0,
+                                            'agent_flagged': 0, 'agent_hint_consistent': 0})
+        self.assertEqual(paper['errors'], [])
         rows = self.rows(paper)
         self.assertEqual(rows[9]['verdict'], 'inconsistent')
         self.assertEqual(rows[9]['error'], 'digit')
@@ -87,15 +114,6 @@ class ReviewGraphTest(unittest.TestCase):
                                                  'note': '需人工改写'})
             self.assertEqual(row['verdict'], 'inconsistent')
 
-    def test_one_metric_written_twice_is_found(self):
-        paper = run(json.dumps(ITEMS, ensure_ascii=False), REVISION)
-        rows = self.rows(paper)
-        self.assertEqual(rows[9]['consistency'],
-                         {'intra_document': True, 'positions': [9, 29],
-                          'numbers': ['1,745.44', '1,741.44']})
-        self.assertEqual(rows[29]['consistency']['positions'], [9, 29])
-        self.assertIsNone(rows[47]['consistency'])
-
     def test_workpaper_resolves_evidence_facts(self):
         paper = run(json.dumps(ITEMS, ensure_ascii=False), REVISION)
         rows = self.rows(paper)
@@ -112,6 +130,162 @@ class ReviewGraphTest(unittest.TestCase):
         self.assertIn('| 抽取遗漏需人工 | 0 |', markdown)
         self.assertIn('一、营业收入／2024年度／元', markdown)
         self.assertIn('2024年营业收入1,741.44亿元', markdown)
+
+
+class InvestigateTest(unittest.TestCase):
+    """The optional node that re-opens the numbers the checker hands to a person."""
+
+    def rows(self, paper: dict) -> dict[int, dict]:
+        return {row['start']: row for row in paper['numbers']}
+
+    def test_only_the_numbers_without_a_checker_verdict_are_handed_over(self):
+        self.assertEqual(handover({}, TEXT), [
+            {'number': '1,745.44', 'occurrence': 1, 'start': 9, 'text': '1,745.44亿元'},
+            {'number': '1,741.44', 'occurrence': 1, 'start': 29, 'text': '1,741.44亿元'},
+            {'number': '3.20', 'occurrence': 1, 'start': 47, 'text': '3.20亿元'}])
+
+    def test_the_agent_lists_only_the_handed_numbers_and_flags_a_wrong_one(self):
+        fake = agent([{'number': '3.20', 'occurrence': 1, 'verdict': '错误', 'expected': '3.10',
+                       'basis': '某公司2024年年报第1页：第四季度净利润310,000,000元'}])
+        paper = run_investigated(fake, json.dumps(ITEMS, ensure_ascii=False), REVISION)
+        self.assertEqual(fake.calls[0][1], [{'number': '3.20', 'occurrence': 1, 'start': 47,
+                                             'text': '3.20亿元'}])
+        row = self.rows(paper)[47]
+        self.assertEqual(row['verdict'], 'inconsistent')
+        self.assertEqual(row['source'], 'agent')
+        self.assertEqual(row['expected'], '3.10')
+        self.assertEqual(row['agent'], {'verdict': 'inconsistent', 'expected': '3.10',
+                                        'basis': '某公司2024年年报第1页：第四季度净利润310,000,000元'})
+        self.assertEqual(row['suggestion'], {})  # the revision node leaves it alone
+        self.assertEqual(paper['summary']['agent_flagged'], 1)
+        self.assertEqual(paper['summary']['consistent'], 1)  # the agent confirms nothing
+        self.assertEqual(self.rows(paper)[9]['suggestion'],
+                         {'accepted': True, 'sentence': '2024年营业收入1,741.44亿元'})
+        self.assertIn('Agent 认为有误：应为 3.10', workpaper_markdown(paper))
+
+    def test_a_consistent_agent_verdict_is_only_a_hint(self):
+        fake = agent([{'number': '3.20', 'occurrence': 1, 'verdict': '正确', 'expected': '',
+                       'basis': ''}])
+        paper = run_investigated(fake, json.dumps(ITEMS, ensure_ascii=False), REVISION)
+        row = self.rows(paper)[47]
+        self.assertEqual(row['verdict'], 'unsupported')
+        self.assertEqual(row['source'], 'checker')
+        self.assertEqual(row['agent'], {'verdict': 'consistent', 'expected': None, 'basis': None})
+        self.assertEqual(row['suggestion'], {})
+        self.assertEqual(paper['summary']['agent_flagged'], 0)
+        self.assertEqual(paper['summary']['agent_hint_consistent'], 1)
+        self.assertEqual(paper['summary']['consistent'], 1)
+        self.assertIn('Agent 认为一致', workpaper_markdown(paper))
+
+    def test_a_verdict_on_a_number_the_checker_settled_is_ignored(self):
+        fake = agent([{'number': '1,741.44', 'occurrence': 1, 'verdict': '错误',
+                       'expected': '1,700.00', 'basis': 'x'},
+                      {'number': '3.20', 'occurrence': 1, 'verdict': '无法判断'}])
+        paper = run_investigated(fake, json.dumps(ITEMS, ensure_ascii=False), REVISION)
+        rows = self.rows(paper)
+        self.assertEqual(rows[29]['verdict'], 'consistent')
+        self.assertIsNone(rows[29]['agent'])
+        self.assertEqual(rows[47]['verdict'], 'unsupported')
+        self.assertIsNone(rows[47]['agent'])
+        self.assertEqual(paper['summary']['agent_flagged'], 0)
+        self.assertEqual(paper['summary']['agent_hint_consistent'], 0)
+
+    def test_a_failing_agent_changes_no_verdict(self):
+        def broken(draft: dict, handed: list[dict]) -> dict:
+            raise RuntimeError('没有密钥')
+
+        paper = run_investigated(broken, json.dumps(ITEMS, ensure_ascii=False), REVISION)
+        self.assertEqual(self.rows(paper)[47]['verdict'], 'unsupported')
+        self.assertEqual(paper['errors'], ['investigate failed: RuntimeError: 没有密钥'])
+
+    def test_an_unparsable_answer_changes_no_verdict(self):
+        def mute(draft: dict, handed: list[dict]) -> dict:
+            return {'items': [], 'answer': '抱歉，我看不懂。'}
+
+        paper = run_investigated(mute, json.dumps(ITEMS, ensure_ascii=False), REVISION)
+        self.assertEqual(self.rows(paper)[47]['verdict'], 'unsupported')
+        self.assertEqual(len(paper['errors']), 1)
+        self.assertIn('unparsable investigate answer', paper['errors'][0])
+
+
+class Model:
+    """A fake chat model: it answers from a script or raises what the script holds."""
+
+    def __init__(self, *replies):
+        self.replies = list(replies)
+        self.calls = 0
+
+    def invoke(self, messages):
+        reply = self.replies[min(self.calls, len(self.replies) - 1)]
+        self.calls += 1
+        if isinstance(reply, Exception):
+            raise reply
+        return AIMessage(content=reply)
+
+
+TWICE = '2024年营业收入1,745.44亿元；2024年营业收入1,744.44亿元。'
+TWICE_ITEMS = [
+    {'number': '1,745.44', 'occurrence': 1, 'type': 'amount', 'unit': '亿元',
+     'label': '营业收入', 'phrase': '营业收入', 'year': 2024, 'scope': '合并'},
+    {'number': '1,744.44', 'occurrence': 1, 'type': 'amount', 'unit': '亿元',
+     'label': '营业收入', 'phrase': '营业收入', 'year': 2024, 'scope': '合并'},
+]
+
+
+class FailureTest(unittest.TestCase):
+    """A model node that fails leaves numbers to a person and never settles one."""
+
+    def paper(self, llm, text=TEXT) -> dict:
+        state = build_graph(build(), llm).invoke(
+            {'text': text, 'code': '600000', 'company': '某公司', 'fiscal_year': 2024,
+             'as_of': '2025-04-30'})
+        return state['workpaper']
+
+    def verdicts(self, paper: dict) -> list[str]:
+        return [row['verdict'] for row in paper['numbers']]
+
+    def test_a_failed_extraction_leaves_every_number_to_a_person(self):
+        paper = self.paper(Model(RuntimeError('网络不通')))
+        self.assertEqual(paper['errors'], ['extract failed: RuntimeError: 网络不通'])
+        self.assertEqual(self.verdicts(paper), ['missed', 'missed', 'missed'])
+        self.assertEqual([paper['summary'][key] for key in ('consistent', 'inconsistent')],
+                         [0, 0])
+
+    def test_an_unparsable_extraction_answer_leaves_every_number_to_a_person(self):
+        paper = self.paper(Model('抱歉，我读不懂。'))
+        self.assertEqual(len(paper['errors']), 1)
+        self.assertTrue(paper['errors'][0].startswith('unparsable extract answer'),
+                        paper['errors'][0])
+        self.assertEqual(self.verdicts(paper), ['missed', 'missed', 'missed'])
+
+    def test_a_spent_budget_leaves_every_number_to_a_person(self):
+        with tempfile.TemporaryDirectory() as directory:
+            client = ApiClient('deepseek-flash', 0.0, Path(directory) / 'cache.jsonl',
+                               send=lambda body: None)
+            paper = self.paper(ApiChatModel(client=client))
+        self.assertEqual(paper['errors'],
+                         ['extract failed: BudgetExceeded: spent $0.00 of $0.00'])
+        self.assertEqual(self.verdicts(paper), ['missed', 'missed', 'missed'])
+
+    def test_a_failed_revision_leaves_that_number_to_a_person_and_the_others_alone(self):
+        llm = Model(json.dumps(TWICE_ITEMS, ensure_ascii=False), RuntimeError('超时'),
+                    '{"sentence": "2024年营业收入1741.44亿元"}')
+        paper = self.paper(llm, TWICE)
+        rows = {row['start']: row for row in paper['numbers']}
+        self.assertEqual(rows[9]['suggestion'],
+                         {'accepted': False, 'sentence': None, 'note': '需人工改写'})
+        self.assertEqual(rows[29]['suggestion'],
+                         {'accepted': True, 'sentence': '2024年营业收入1741.44亿元'})
+        self.assertEqual(paper['errors'], ['revise failed: RuntimeError: 超时'])
+        self.assertEqual(rows[9]['verdict'], 'inconsistent')
+
+    def test_every_number_appears_once_and_a_failure_settles_none(self):
+        for llm in (Model(RuntimeError('x')), Model('乱码')):
+            paper = self.paper(llm)
+            self.assertEqual([row['start'] for row in paper['numbers']],
+                             [number['start'] for number in numbers_in(TEXT)])
+            self.assertNotIn('consistent', self.verdicts(paper))
+            self.assertNotIn('inconsistent', self.verdicts(paper))
 
 
 if __name__ == '__main__':

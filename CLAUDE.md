@@ -33,7 +33,7 @@ Two agents work in this repository: Claude and Codex. Claude is responsible for:
    itself. Roadmap decisions are still made with the user in chat. Codex may do
    such work only when a task explicitly allows it.
 6. **Driving Codex**: run one task at a time, in the background:
-   `set -a; . ./.env; set +a; codex exec -p deepseek -C /root/Finagent -o <reply file> "<prompt>"`
+   `set -a; . ./.env; set +a; codex exec -p deepseek -C /root/Finagent -o <reply file> "<prompt>" < /dev/null`
    (`cds` is the user's alias for `codex --profile deepseek`; the bwrap sandbox
    does not work in this container, so keep the profile's full-access mode).
    When it finishes, review it and write the next step in
