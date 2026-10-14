@@ -1,0 +1,196 @@
+{
+ "snapshot_id": "cninfo-annual-v1",
+ "fiscal_years": [
+  2023,
+  2024,
+  2025
+ ],
+ "published": [
+  "2024-01-01",
+  "2026-10-13"
+ ],
+ "directory": "http://www.cninfo.com.cn/new/data/szse_stock.json",
+ "directory_checked": "2026-10-13",
+ "issuers": [
+  {
+   "code": "600036",
+   "name": "招商银行",
+   "org_id": "gssh0600036",
+   "industry": "银行"
+  },
+  {
+   "code": "601398",
+   "name": "工商银行",
+   "org_id": "jjxt0000019",
+   "industry": "银行"
+  },
+  {
+   "code": "601166",
+   "name": "兴业银行",
+   "org_id": "9900002081",
+   "industry": "银行"
+  },
+  {
+   "code": "601318",
+   "name": "中国平安",
+   "org_id": "9900002221",
+   "industry": "保险"
+  },
+  {
+   "code": "600030",
+   "name": "中信证券",
+   "org_id": "gssh0600030",
+   "industry": "券商"
+  },
+  {
+   "code": "300059",
+   "name": "东方财富",
+   "org_id": "9900010488",
+   "industry": "券商"
+  },
+  {
+   "code": "600519",
+   "name": "贵州茅台",
+   "org_id": "gssh0600519",
+   "industry": "食品饮料"
+  },
+  {
+   "code": "000858",
+   "name": "五粮液",
+   "org_id": "gssz0000858",
+   "industry": "食品饮料"
+  },
+  {
+   "code": "600887",
+   "name": "伊利股份",
+   "org_id": "gssh0600887",
+   "industry": "食品饮料"
+  },
+  {
+   "code": "000333",
+   "name": "美的集团",
+   "org_id": "9900005965",
+   "industry": "家电"
+  },
+  {
+   "code": "000651",
+   "name": "格力电器",
+   "org_id": "gssz0000651",
+   "industry": "家电"
+  },
+  {
+   "code": "300750",
+   "name": "宁德时代",
+   "org_id": "GD165627",
+   "industry": "新能源与汽车"
+  },
+  {
+   "code": "002594",
+   "name": "比亚迪",
+   "org_id": "gshk0001211",
+   "industry": "新能源与汽车"
+  },
+  {
+   "code": "601012",
+   "name": "隆基绿能",
+   "org_id": "9900022338",
+   "industry": "新能源与汽车"
+  },
+  {
+   "code": "600276",
+   "name": "恒瑞医药",
+   "org_id": "gssh0600276",
+   "industry": "医药"
+  },
+  {
+   "code": "300760",
+   "name": "迈瑞医疗",
+   "org_id": "9900035304",
+   "industry": "医药"
+  },
+  {
+   "code": "603259",
+   "name": "药明康德",
+   "org_id": "9900035584",
+   "industry": "医药"
+  },
+  {
+   "code": "002415",
+   "name": "海康威视",
+   "org_id": "9900012688",
+   "industry": "电子与半导体"
+  },
+  {
+   "code": "002475",
+   "name": "立讯精密",
+   "org_id": "9900014448",
+   "industry": "电子与半导体"
+  },
+  {
+   "code": "688981",
+   "name": "中芯国际",
+   "org_id": "gshk0000981",
+   "industry": "电子与半导体"
+  },
+  {
+   "code": "000725",
+   "name": "京东方A",
+   "org_id": "gssz0000725",
+   "industry": "电子与半导体"
+  },
+  {
+   "code": "600941",
+   "name": "中国移动",
+   "org_id": "gshk0000941",
+   "industry": "通信"
+  },
+  {
+   "code": "601728",
+   "name": "中国电信",
+   "org_id": "gshk0000728",
+   "industry": "通信"
+  },
+  {
+   "code": "600900",
+   "name": "长江电力",
+   "org_id": "gssh0600900",
+   "industry": "能源与资源"
+  },
+  {
+   "code": "601088",
+   "name": "中国神华",
+   "org_id": "9900003701",
+   "industry": "能源与资源"
+  },
+  {
+   "code": "601899",
+   "name": "紫金矿业",
+   "org_id": "9900004143",
+   "industry": "能源与资源"
+  },
+  {
+   "code": "000002",
+   "name": "万科A",
+   "org_id": "gssz0000002",
+   "industry": "地产与化工"
+  },
+  {
+   "code": "600309",
+   "name": "万华化学",
+   "org_id": "gssh0600309",
+   "industry": "地产与化工"
+  },
+  {
+   "code": "600031",
+   "name": "三一重工",
+   "org_id": "gssh0600031",
+   "industry": "制造与物流"
+  },
+  {
+   "code": "002352",
+   "name": "顺丰控股",
+   "org_id": "9900010448",
+   "industry": "制造与物流"
+  }
+ ]
+}

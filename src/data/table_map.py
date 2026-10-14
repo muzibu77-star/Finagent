@@ -129,10 +129,15 @@ def map_table(cells: list[Cell], numbers: list[NumberSpan]) -> dict:
 
     Returns ``mapped`` (cell with its span), ``unmapped_cells`` (numeric cells
     with no PDF counterpart: a misread value or a scanned page) and
-    ``unmapped_numbers`` (PDF numbers in the table area the parser left out).
+    ``unmapped_numbers`` (PDF numbers in the table area without a numeric cell).
+    Each unmapped number carries ``where``: ``merged`` when a text cell ends
+    with it (a label and a value column were fused), ``embedded`` when a text
+    cell merely contains it (a date in a header, "增加0.24个百分点"), and
+    ``missing`` when no cell has it.
     """
     numeric = [cell for cell in sorted(cells, key=lambda c: (c.row, c.column))
                if NUMBER.fullmatch(cell.text)]
+    prose = [key(cell.text) for cell in cells if not NUMBER.fullmatch(cell.text)]
     matcher = SequenceMatcher(None, [key(c.text) for c in numeric],
                               [key(n.text) for n in numbers], autojunk=False)
     mapped, used_cells, used_numbers = [], set(), set()
@@ -147,39 +152,136 @@ def map_table(cells: list[Cell], numbers: list[NumberSpan]) -> dict:
         'mapped': mapped,
         'unmapped_cells': [{'row': c.row, 'column': c.column, 'text': c.text}
                            for i, c in enumerate(numeric) if i not in used_cells],
-        'unmapped_numbers': [{'text': n.text, 'start': n.start, 'end': n.end}
+        'unmapped_numbers': [{'text': n.text, 'start': n.start, 'end': n.end,
+                              'where': _placement(key(n.text), prose)}
                              for i, n in enumerate(numbers) if i not in used_numbers],
     }
 
 
-def map_parsed_tables(document, middle: dict) -> list[dict]:
-    """Map every table of a MinerU ``docvortex.middle`` result onto ``document``.
+def _placement(number: str, prose: list[str]) -> str:
+    if any(text.endswith(number) for text in prose):
+        return 'merged'
+    return 'embedded' if any(number in text for text in prose) else 'missing'
 
-    ``document`` is an open ``pypdfium2.PdfDocument`` of the parsed file.  Block
-    boxes are fractions of the page with a top-left origin; PDFium boxes are in
-    points with a bottom-left origin.
+
+
+def page_box(size: tuple[float, float], bbox: list[float], shift: float = 0.0) -> Box:
+    """A MinerU block box in PDFium page coordinates.
+
+    Block boxes are fractions of the page with a top-left origin; PDFium boxes
+    are in points with a bottom-left origin.
+    """
+    width, height = size
+    left, top, right, bottom = bbox
+    return (left * width + shift, (1 - bottom) * height,
+            right * width + shift, (1 - top) * height)
+
+
+def horizontal_shift(numbers: list[NumberSpan], size: tuple[float, float],
+                     bboxes: list[list[float]]) -> float:
+    """Offset of the text layer on pages cut from a double-page spread.
+
+    Some reports store each printed page as half of a spread and leave its
+    characters at the spread's coordinates, one page width to the side.  The
+    offset that places the most numbers inside the page's tables is used; a
+    tie keeps the text where it is.
+    """
+    def inside(shift: float) -> int:
+        boxes = [page_box(size, bbox, shift) for bbox in bboxes]
+        return sum(any(b[0] <= (n.box[0] + n.box[2]) / 2 <= b[2]
+                       and b[1] <= (n.box[1] + n.box[3]) / 2 <= b[3] for b in boxes)
+                   for n in numbers)
+    return max((0.0, size[0], -size[0]), key=lambda shift: (inside(shift), shift == 0.0))
+
+
+def map_table_body(textpage, text: str, size: tuple[float, float], part: dict,
+                   shift: float = 0.0) -> dict:
+    """Map one MinerU ``table_body`` part onto its page."""
+    box = page_box(size, part['bbox'], shift)
+    cells = table_cells(part['content'])
+    result = map_table(cells, page_numbers(textpage, text, box))
+    map_wrapped(result, textpage, text, box)
+    return {'box': list(box), 'cells': cells, **result}
+
+
+def map_wrapped(result: dict, textpage, text: str, box: Box, margin: float = 2.0) -> None:
+    """Map cells whose number is broken across lines in the PDF text.
+
+    A narrow column wraps "872,451.40" into "8 / 7 / 2, / 4 / ..."; the text
+    layer then holds the digits in order but separated by line breaks, so no
+    whole number exists to align with.  Such a cell is matched against the
+    table's remaining characters with whitespace removed, in reading order and
+    only when the digits are long enough to be distinctive.  ``result`` is
+    updated in place; the span of a wrapped number includes its line breaks.
+    """
+    if not result['unmapped_cells']:
+        return
+    taken = [False] * len(text)
+    for item in result['mapped']:
+        taken[item['start']:item['end']] = [True] * (item['end'] - item['start'])
+    stream, index, boxes = [], [], []
+    for position, char in enumerate(text):
+        if char.isspace() or taken[position]:
+            continue
+        try:
+            left, bottom, right, top = textpage.get_charbox(position)
+        except Exception:  # PDFium has no box for a generated character
+            continue
+        if not (box[0] - margin <= (left + right) / 2 <= box[2] + margin
+                and box[1] - margin <= (bottom + top) / 2 <= box[3] + margin):
+            continue
+        stream.append(char)
+        index.append(position)
+        boxes.append((left, bottom, right, top))
+    joined, cursor, remaining = ''.join(stream), 0, []
+    for cell in result['unmapped_cells']:
+        wanted = re.sub(r'\s', '', cell['text'])
+        at = joined.find(wanted, cursor) if len(wanted) >= 6 else -1
+        if at < 0:
+            remaining.append(cell)
+            continue
+        start, end = index[at], index[at + len(wanted) - 1] + 1
+        # Every character between the first and last digit must belong to the
+        # match; otherwise two unrelated fragments were joined.
+        if sum(not char.isspace() for char in text[start:end]) != len(wanted):
+            remaining.append(cell)
+            continue
+        drawn = boxes[at:at + len(wanted)]
+        result['mapped'].append({
+            'row': cell['row'], 'column': cell['column'], 'text': cell['text'],
+            'start': start, 'end': end, 'wrapped': True,
+            'box': [min(b[0] for b in drawn), min(b[1] for b in drawn),
+                    max(b[2] for b in drawn), max(b[3] for b in drawn)]})
+        taken[start:end] = [True] * (end - start)
+        cursor = at + len(wanted)
+    result['unmapped_cells'] = remaining
+    result['unmapped_numbers'] = [number for number in result['unmapped_numbers']
+                                  if not taken[number['start']]]
+
+
+def parsed_tables(document, middle: dict):
+    """Yield ``(page, preceding blocks, table block, mapping)`` for every table.
+
+    ``document`` is an open ``pypdfium2.PdfDocument`` of the file that produced
+    the MinerU ``docvortex.middle`` result ``middle``.
     """
     if middle.get('schema') != 'docvortex.middle':
         raise ValueError('unsupported layout parser output')
-    tables = []
     for parsed in middle['pages']:
         page = document[parsed['page_idx']]
-        width, height = page.get_size()
         textpage = page.get_textpage()
         text = textpage.get_text_bounded()
-        for block in parsed['blocks']:
+        blocks = parsed.get('blocks', [])  # a blank page has no blocks
+        bodies = [part['bbox'] for block in blocks if block['type'] == 'table'
+                  for part in block['content'] if part['type'] == 'table_body']
+        shift = (horizontal_shift(page_numbers(textpage, text), page.get_size(), bodies)
+                 if bodies else 0.0)
+        for position, block in enumerate(blocks):
             if block['type'] != 'table':
                 continue
             for part in block['content']:
-                if part['type'] != 'table_body':
-                    continue
-                left, top, right, bottom = part['bbox']
-                box = (left * width, (1 - bottom) * height, right * width, (1 - top) * height)
-                cells = table_cells(part['content'])
-                result = map_table(cells, page_numbers(textpage, text, box))
-                tables.append({'pdf_page': parsed['page_idx'] + 1, 'block_index': block['index'],
-                               'continues_previous': bool(block.get('continues_prev')),
-                               'box': list(box), 'cells': len(cells), **result})
+                if part['type'] == 'table_body':
+                    yield (parsed['page_idx'] + 1, blocks[:position], block,
+                           map_table_body(textpage, text, page.get_size(), part, shift))
         textpage.close()
         page.close()
-    return tables

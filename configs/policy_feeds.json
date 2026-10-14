@@ -1,0 +1,83 @@
+{
+ "snapshot_id": "policy-v1",
+ "published": [
+  "2024-10-13",
+  "2026-10-13"
+ ],
+ "sources": [
+  {
+   "id": "executive-meetings",
+   "kind": "executive_meetings",
+   "publisher": "新华社",
+   "list": "https://www.news.cn/politics/leaders/liqiang/ds_cfca3536c04a47e5bb2ae18dc7444d20.json",
+   "body": [
+    "detailContent",
+    "detail"
+   ],
+   "published": [
+    "2023-03-11",
+    "2026-10-13"
+   ]
+  },
+  {
+   "id": "state-council-policies",
+   "kind": "state_council_policies",
+   "publisher": "中国政府网",
+   "list": "https://www.gov.cn/zhengce/zuixin/ZUIXINZHENGCE.json",
+   "body": [
+    "UCAP-CONTENT",
+    "pages_content",
+    "TRS_UEDITOR"
+   ]
+  },
+  {
+   "id": "statistics-releases",
+   "kind": "listed_pages",
+   "publisher": "国家统计局",
+   "list": "https://www.stats.gov.cn/sj/zxfb/",
+   "next": "index_{page}.html",
+   "first_next": 1,
+   "item": "<a class=\"fl pc_1600\" href=\"(?P<link>[^\"]+)\"[^>]*title='(?P<title>[^']+)'.*?<span>\\s*(?P<published>\\d{4}-\\d{2}-\\d{2})\\s*</span>",
+   "body": [
+    "TRS_UEDITOR",
+    "txt-content"
+   ]
+  },
+  {
+   "id": "ndrc-notices",
+   "kind": "listed_pages",
+   "publisher": "国家发展和改革委员会",
+   "list": "https://www.ndrc.gov.cn/xxgk/zcfb/tz/",
+   "next": "index_{page}.html",
+   "first_next": 1,
+   "item": "<li><a href=\"(?P<link>\\./[^\"]+\\.html)\"[^>]*title=\"(?P<title>[^\"]+)\".*?<span>(?P<published>\\d{4}/\\d{2}/\\d{2})</span></li>",
+   "body": [
+    "TRS_UEDITOR",
+    "article_con",
+    "TRS_Editor"
+   ]
+  },
+  {
+   "id": "pbc-news",
+   "kind": "listed_pages",
+   "publisher": "中国人民银行",
+   "list": "https://www.pbc.gov.cn/goutongjiaoliu/113456/113469/index.html",
+   "next": "11040-{page}.html",
+   "first_next": 2,
+   "item": "<a href=\"(?P<link>/goutongjiaoliu/113456/113469/\\d+/index\\.html)\"[^>]*title=\"(?P<title>[^\"]+)\"[^>]*>.*?<span class=\"hui12\">(?P<published>\\d{4}-\\d{2}-\\d{2})</span>",
+   "body": [
+    "zoom",
+    "content"
+   ]
+  },
+  {
+   "id": "csrc-news",
+   "kind": "csrc_channel",
+   "publisher": "中国证券监督管理委员会",
+   "list": "https://www.csrc.gov.cn/searchList/a1a078ee0bc54721ab6b148884c784a8?_isAgg=true&_isJson=true&_pageSize=18&_template=index&_rangeTimeGte=&_channelName=&page={page}",
+   "body": [
+    "detail-news"
+   ]
+  }
+ ]
+}

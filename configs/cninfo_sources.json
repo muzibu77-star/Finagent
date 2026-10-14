@@ -1,0 +1,1895 @@
+{
+ "snapshot_id": "cninfo-annual-v1",
+ "sources": [
+  {
+   "id": "600036-1225047590",
+   "code": "600036",
+   "company": "招商银行",
+   "industry": "银行",
+   "kind": "annual",
+   "fiscal_year": 2025,
+   "title": "招商银行股份有限公司2025年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-03-28/1225047590.PDF",
+   "disclosure_date": "2026-03-28",
+   "path": "data/raw/cninfo/600036/1225047590.pdf",
+   "bytes": 32081947,
+   "sha256": "abe612a273468072b176dd51ea460c1e1596f8ca729cbc6db3fa28ba9a57ea79"
+  },
+  {
+   "id": "600036-1222895154",
+   "code": "600036",
+   "company": "招商银行",
+   "industry": "银行",
+   "kind": "annual",
+   "fiscal_year": 2024,
+   "title": "招商银行股份有限公司2024年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2025-03-26/1222895154.PDF",
+   "disclosure_date": "2025-03-26",
+   "path": "data/raw/cninfo/600036/1222895154.pdf",
+   "bytes": 6215121,
+   "sha256": "44a8759c94e1ba92f1d96897ca3778592d9a7eb33b53420c19268f0b140d81c3"
+  },
+  {
+   "id": "600036-1219403503",
+   "code": "600036",
+   "company": "招商银行",
+   "industry": "银行",
+   "kind": "annual",
+   "fiscal_year": 2023,
+   "title": "招商银行股份有限公司2023年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2024-03-26/1219403503.PDF",
+   "disclosure_date": "2024-03-26",
+   "path": "data/raw/cninfo/600036/1219403503.pdf",
+   "bytes": 5834543,
+   "sha256": "948a390b579a8d46f281d3f88a346b4388f1bb6b82a90db61d5cd48b4627598a"
+  },
+  {
+   "id": "601398-1225047240",
+   "code": "601398",
+   "company": "工商银行",
+   "industry": "银行",
+   "kind": "annual",
+   "fiscal_year": 2025,
+   "title": "工商银行2025年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-03-28/1225047240.PDF",
+   "disclosure_date": "2026-03-28",
+   "path": "data/raw/cninfo/601398/1225047240.pdf",
+   "bytes": 9289165,
+   "sha256": "e2edab73032f143aad881f612382bc613c8b96b424bb197b125d64a0ef23c78b"
+  },
+  {
+   "id": "601398-1222948914",
+   "code": "601398",
+   "company": "工商银行",
+   "industry": "银行",
+   "kind": "annual",
+   "fiscal_year": 2024,
+   "title": "工商银行2024年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2025-03-29/1222948914.PDF",
+   "disclosure_date": "2025-03-29",
+   "path": "data/raw/cninfo/601398/1222948914.pdf",
+   "bytes": 9880426,
+   "sha256": "27b9c08e81061722ab4166ad23d4f90366a3f075af1422543fa6dcb8c7d1a03c"
+  },
+  {
+   "id": "601398-1219429144",
+   "code": "601398",
+   "company": "工商银行",
+   "industry": "银行",
+   "kind": "annual",
+   "fiscal_year": 2023,
+   "title": "工商银行2023年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2024-03-28/1219429144.PDF",
+   "disclosure_date": "2024-03-28",
+   "path": "data/raw/cninfo/601398/1219429144.pdf",
+   "bytes": 9493877,
+   "sha256": "e310e8a55ff8f057782c6c70b003fa220ca5a2e484334bffbf308bdc39b3434d"
+  },
+  {
+   "id": "601166-1225039240",
+   "code": "601166",
+   "company": "兴业银行",
+   "industry": "银行",
+   "kind": "annual",
+   "fiscal_year": 2025,
+   "title": "兴业银行2025年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-03-27/1225039240.PDF",
+   "disclosure_date": "2026-03-27",
+   "path": "data/raw/cninfo/601166/1225039240.pdf",
+   "bytes": 20409748,
+   "sha256": "8ad7c2264a38441715cafd485a9214f0c180bc1eb037837bb0403013fadd586c"
+  },
+  {
+   "id": "601166-1222927176",
+   "code": "601166",
+   "company": "兴业银行",
+   "industry": "银行",
+   "kind": "annual",
+   "fiscal_year": 2024,
+   "title": "兴业银行2024年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2025-03-28/1222927176.PDF",
+   "disclosure_date": "2025-03-28",
+   "path": "data/raw/cninfo/601166/1222927176.pdf",
+   "bytes": 16536762,
+   "sha256": "b7784a8dd0b6b2798683c9db9ea5cb129eabd30f0352f0cce080bb8d06fc17b8"
+  },
+  {
+   "id": "601166-1219445697",
+   "code": "601166",
+   "company": "兴业银行",
+   "industry": "银行",
+   "kind": "annual",
+   "fiscal_year": 2023,
+   "title": "兴业银行2023年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2024-03-29/1219445697.PDF",
+   "disclosure_date": "2024-03-29",
+   "path": "data/raw/cninfo/601166/1219445697.pdf",
+   "bytes": 4024528,
+   "sha256": "296ce7e3f505668068985d4771a7b7ec88ba6bfc8a9a312cbdad67f98bae3c1e"
+  },
+  {
+   "id": "601318-1225038263",
+   "code": "601318",
+   "company": "中国平安",
+   "industry": "保险",
+   "kind": "annual",
+   "fiscal_year": 2025,
+   "title": "中国平安2025年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-03-27/1225038263.PDF",
+   "disclosure_date": "2026-03-27",
+   "path": "data/raw/cninfo/601318/1225038263.pdf",
+   "bytes": 9497402,
+   "sha256": "860c455bbad9be59d3d1bf64bf683733feb79157212532df44b91d49a0b03c2a"
+  },
+  {
+   "id": "601318-1222847447",
+   "code": "601318",
+   "company": "中国平安",
+   "industry": "保险",
+   "kind": "annual",
+   "fiscal_year": 2024,
+   "title": "中国平安2024年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2025-03-20/1222847447.PDF",
+   "disclosure_date": "2025-03-20",
+   "path": "data/raw/cninfo/601318/1222847447.pdf",
+   "bytes": 11542073,
+   "sha256": "6ffff1cade59c64c8178494c083cac8a4011ef5ae2fed32f85dd488a64a809b2"
+  },
+  {
+   "id": "601318-1219376072",
+   "code": "601318",
+   "company": "中国平安",
+   "industry": "保险",
+   "kind": "annual",
+   "fiscal_year": 2023,
+   "title": "中国平安2023年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2024-03-22/1219376072.PDF",
+   "disclosure_date": "2024-03-22",
+   "path": "data/raw/cninfo/601318/1219376072.pdf",
+   "bytes": 7225491,
+   "sha256": "f55538814200d77a61492ba216e45508f487064207bca6a4d90c7b55add43823"
+  },
+  {
+   "id": "600030-1225036081",
+   "code": "600030",
+   "company": "中信证券",
+   "industry": "券商",
+   "kind": "annual",
+   "fiscal_year": 2025,
+   "title": "中信证券股份有限公司2025年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-03-27/1225036081.PDF",
+   "disclosure_date": "2026-03-27",
+   "path": "data/raw/cninfo/600030/1225036081.pdf",
+   "bytes": 10435774,
+   "sha256": "438f2a53dcf4bf0569b6783b51674aae25076d23d53198b08cf7b539e14003c2"
+  },
+  {
+   "id": "600030-1222912838",
+   "code": "600030",
+   "company": "中信证券",
+   "industry": "券商",
+   "kind": "annual",
+   "fiscal_year": 2024,
+   "title": "中信证券股份有限公司2024年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2025-03-27/1222912838.PDF",
+   "disclosure_date": "2025-03-27",
+   "path": "data/raw/cninfo/600030/1222912838.pdf",
+   "bytes": 10986340,
+   "sha256": "27ee61ad5296d8f200861692af538a7db034aadf770ba0ae67f736d4e693d50d"
+  },
+  {
+   "id": "600030-1219411922",
+   "code": "600030",
+   "company": "中信证券",
+   "industry": "券商",
+   "kind": "annual",
+   "fiscal_year": 2023,
+   "title": "中信证券股份有限公司2023年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2024-03-27/1219411922.PDF",
+   "disclosure_date": "2024-03-27",
+   "path": "data/raw/cninfo/600030/1219411922.pdf",
+   "bytes": 11895413,
+   "sha256": "53ccd5dea81365b5dbbe22c7163b9fef658b36bf25d68fa69dbd5c7fd1cd24ff"
+  },
+  {
+   "id": "300059-1225019509",
+   "code": "300059",
+   "company": "东方财富",
+   "industry": "券商",
+   "kind": "annual",
+   "fiscal_year": 2025,
+   "title": "2025年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-03-20/1225019509.PDF",
+   "disclosure_date": "2026-03-20",
+   "path": "data/raw/cninfo/300059/1225019509.pdf",
+   "bytes": 4982101,
+   "sha256": "a5edb3304600d7ff7faeefa65fea3846f4326743cc72d9ade14cf93af20c1737"
+  },
+  {
+   "id": "300059-1222806709",
+   "code": "300059",
+   "company": "东方财富",
+   "industry": "券商",
+   "kind": "annual",
+   "fiscal_year": 2024,
+   "title": "2024年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2025-03-15/1222806709.PDF",
+   "disclosure_date": "2025-03-15",
+   "path": "data/raw/cninfo/300059/1222806709.pdf",
+   "bytes": 5089512,
+   "sha256": "a803c2d1d188f4e88d208566adff32a32d7fdabe3b361e01e110ffae0c4cdeda"
+  },
+  {
+   "id": "300059-1219307793",
+   "code": "300059",
+   "company": "东方财富",
+   "industry": "券商",
+   "kind": "annual",
+   "fiscal_year": 2023,
+   "title": "2023年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2024-03-15/1219307793.PDF",
+   "disclosure_date": "2024-03-15",
+   "path": "data/raw/cninfo/300059/1219307793.pdf",
+   "bytes": 4917979,
+   "sha256": "a0351fa1c1a676aeef55d2c7fda466a2ed431dc3dc79ef44ef58f943727d1fcb"
+  },
+  {
+   "id": "600519-1225114741",
+   "code": "600519",
+   "company": "贵州茅台",
+   "industry": "食品饮料",
+   "kind": "annual",
+   "fiscal_year": 2025,
+   "title": "贵州茅台2025年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-04-17/1225114741.PDF",
+   "disclosure_date": "2026-04-17",
+   "path": "data/raw/cninfo/600519/1225114741.pdf",
+   "bytes": 1082847,
+   "sha256": "474905deeaf0f875fc0a1b097a626c0c7852c427faadc5d7fc7816cbf45ea288"
+  },
+  {
+   "id": "600519-1222993920",
+   "code": "600519",
+   "company": "贵州茅台",
+   "industry": "食品饮料",
+   "kind": "annual",
+   "fiscal_year": 2024,
+   "title": "贵州茅台2024年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2025-04-03/1222993920.PDF",
+   "disclosure_date": "2025-04-03",
+   "path": "data/raw/cninfo/600519/1222993920.pdf",
+   "bytes": 3626217,
+   "sha256": "5299f4940e2ce4e91084b73dc457d558b9d335fa76fbfee6227e4254eb7f4a30"
+  },
+  {
+   "id": "600519-1219506510",
+   "code": "600519",
+   "company": "贵州茅台",
+   "industry": "食品饮料",
+   "kind": "annual",
+   "fiscal_year": 2023,
+   "title": "贵州茅台2023年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2024-04-03/1219506510.PDF",
+   "disclosure_date": "2024-04-03",
+   "path": "data/raw/cninfo/600519/1219506510.pdf",
+   "bytes": 3563819,
+   "sha256": "2125ff97a452ea79b0d784e2432f7d224b6aecc330b644b593477d69e22f4ed1"
+  },
+  {
+   "id": "000858-1225273091",
+   "code": "000858",
+   "company": "五粮液",
+   "industry": "食品饮料",
+   "kind": "annual",
+   "fiscal_year": 2025,
+   "title": "2025年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-04-30/1225273091.PDF",
+   "disclosure_date": "2026-04-30",
+   "path": "data/raw/cninfo/000858/1225273091.pdf",
+   "bytes": 3085658,
+   "sha256": "09133e1f44b3bb4b2cebe211529ad68f5b04b6be10b43870f2a78c947d5910a4"
+  },
+  {
+   "id": "000858-1223311527",
+   "code": "000858",
+   "company": "五粮液",
+   "industry": "食品饮料",
+   "kind": "annual",
+   "fiscal_year": 2024,
+   "title": "2024年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2025-04-26/1223311527.PDF",
+   "disclosure_date": "2025-04-26",
+   "path": "data/raw/cninfo/000858/1223311527.pdf",
+   "bytes": 7895552,
+   "sha256": "b737191a758994a35e9442d46847de771fe48b758feb9a7f35601def922435e7"
+  },
+  {
+   "id": "000858-1219873658",
+   "code": "000858",
+   "company": "五粮液",
+   "industry": "食品饮料",
+   "kind": "annual",
+   "fiscal_year": 2023,
+   "title": "2023年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2024-04-29/1219873658.PDF",
+   "disclosure_date": "2024-04-29",
+   "path": "data/raw/cninfo/000858/1219873658.pdf",
+   "bytes": 4646198,
+   "sha256": "1aab0efbe751c145990ac9652c3aff165452ee060bf22a0fe0412996a55e8566"
+  },
+  {
+   "id": "600887-1225259562",
+   "code": "600887",
+   "company": "伊利股份",
+   "industry": "食品饮料",
+   "kind": "annual",
+   "fiscal_year": 2025,
+   "title": "内蒙古伊利实业集团股份有限公司2025年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-04-30/1225259562.PDF",
+   "disclosure_date": "2026-04-30",
+   "path": "data/raw/cninfo/600887/1225259562.pdf",
+   "bytes": 1502184,
+   "sha256": "d17b8c541c42f65d092317093eb0cfbb5aeed4f44eafa2d2f6182041cdcdbaac"
+  },
+  {
+   "id": "600887-1223421123",
+   "code": "600887",
+   "company": "伊利股份",
+   "industry": "食品饮料",
+   "kind": "annual",
+   "fiscal_year": 2024,
+   "title": "内蒙古伊利实业集团股份有限公司2024年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2025-04-30/1223421123.PDF",
+   "disclosure_date": "2025-04-30",
+   "path": "data/raw/cninfo/600887/1223421123.pdf",
+   "bytes": 1522472,
+   "sha256": "a82a81e52f52da3cd1b7f38ded08625dc18e3d4522b15d3ef76bf921e54c1f43"
+  },
+  {
+   "id": "600887-1219916433",
+   "code": "600887",
+   "company": "伊利股份",
+   "industry": "食品饮料",
+   "kind": "annual",
+   "fiscal_year": 2023,
+   "title": "内蒙古伊利实业集团股份有限公司2023年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2024-04-30/1219916433.PDF",
+   "disclosure_date": "2024-04-30",
+   "path": "data/raw/cninfo/600887/1219916433.pdf",
+   "bytes": 4729271,
+   "sha256": "d56b0be917eb89a07f092a3ecf1c269aea9f1698c51b648a53f69a0759ef44fe"
+  },
+  {
+   "id": "000333-1225065145",
+   "code": "000333",
+   "company": "美的集团",
+   "industry": "家电",
+   "kind": "annual",
+   "fiscal_year": 2025,
+   "title": "2025年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-03-31/1225065145.PDF",
+   "disclosure_date": "2026-03-31",
+   "path": "data/raw/cninfo/000333/1225065145.pdf",
+   "bytes": 5942399,
+   "sha256": "16f95f70527db59dcf2736f276a9479cf7ee917e5f71e4f6cbbe83acbad9f4b6"
+  },
+  {
+   "id": "000333-1222951181",
+   "code": "000333",
+   "company": "美的集团",
+   "industry": "家电",
+   "kind": "annual",
+   "fiscal_year": 2024,
+   "title": "2024年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2025-03-29/1222951181.PDF",
+   "disclosure_date": "2025-03-29",
+   "path": "data/raw/cninfo/000333/1222951181.pdf",
+   "bytes": 6737887,
+   "sha256": "b17a9b9b84bca1d2a4e4a3cadc5dd5ba5c85e3f1fd2d758acd3315b5b040ecd9"
+  },
+  {
+   "id": "000333-1219429374",
+   "code": "000333",
+   "company": "美的集团",
+   "industry": "家电",
+   "kind": "annual",
+   "fiscal_year": 2023,
+   "title": "2023年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2024-03-28/1219429374.PDF",
+   "disclosure_date": "2024-03-28",
+   "path": "data/raw/cninfo/000333/1219429374.pdf",
+   "bytes": 6617110,
+   "sha256": "22f4915d91ada74a37eab8d074aef4c15420f3b1a8b5f5bd5777c00f97d58b86"
+  },
+  {
+   "id": "000651-1225250396",
+   "code": "000651",
+   "company": "格力电器",
+   "industry": "家电",
+   "kind": "annual",
+   "fiscal_year": 2025,
+   "title": "2025年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-04-29/1225250396.PDF",
+   "disclosure_date": "2026-04-29",
+   "path": "data/raw/cninfo/000651/1225250396.pdf",
+   "bytes": 2350012,
+   "sha256": "7cc972f2d199e2ec3797cc5da479e8268afa59b77875770de3bcd3648242fb8c"
+  },
+  {
+   "id": "000651-1223330631",
+   "code": "000651",
+   "company": "格力电器",
+   "industry": "家电",
+   "kind": "annual",
+   "fiscal_year": 2024,
+   "title": "2024年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2025-04-28/1223330631.PDF",
+   "disclosure_date": "2025-04-28",
+   "path": "data/raw/cninfo/000651/1223330631.pdf",
+   "bytes": 5087621,
+   "sha256": "c7184706caf5f57c04a795990967cfc4f4253024e02f8bdaffe2b260df2c6006"
+  },
+  {
+   "id": "000651-1219928418",
+   "code": "000651",
+   "company": "格力电器",
+   "industry": "家电",
+   "kind": "annual",
+   "fiscal_year": 2023,
+   "title": "2023年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2024-04-30/1219928418.PDF",
+   "disclosure_date": "2024-04-30",
+   "path": "data/raw/cninfo/000651/1219928418.pdf",
+   "bytes": 3911496,
+   "sha256": "32ebc475a2291ce4f1b5c1a9f9da55227e03192f07e75041e976c29d213ec8aa"
+  },
+  {
+   "id": "300750-1225002214",
+   "code": "300750",
+   "company": "宁德时代",
+   "industry": "新能源与汽车",
+   "kind": "annual",
+   "fiscal_year": 2025,
+   "title": "2025年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-03-10/1225002214.PDF",
+   "disclosure_date": "2026-03-10",
+   "path": "data/raw/cninfo/300750/1225002214.pdf",
+   "bytes": 2043710,
+   "sha256": "c15272977147dee7e6935a38ea0e4fd6855370aabb106f54cfe20f7cf6048ec9"
+  },
+  {
+   "id": "300750-1222806982",
+   "code": "300750",
+   "company": "宁德时代",
+   "industry": "新能源与汽车",
+   "kind": "annual",
+   "fiscal_year": 2024,
+   "title": "2024年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2025-03-15/1222806982.PDF",
+   "disclosure_date": "2025-03-15",
+   "path": "data/raw/cninfo/300750/1222806982.pdf",
+   "bytes": 2070073,
+   "sha256": "b4f1713d7b821eb076c102711d177fe942ccc2bc8dd171ae5d7a95799a65b0ad"
+  },
+  {
+   "id": "300750-1219313047",
+   "code": "300750",
+   "company": "宁德时代",
+   "industry": "新能源与汽车",
+   "kind": "annual",
+   "fiscal_year": 2023,
+   "title": "2023年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2024-03-16/1219313047.PDF",
+   "disclosure_date": "2024-03-16",
+   "path": "data/raw/cninfo/300750/1219313047.pdf",
+   "bytes": 5986207,
+   "sha256": "6081f0377617dddb82f900569d6458c278a7ab26697b34c87684188eac083471"
+  },
+  {
+   "id": "002594-1225045351",
+   "code": "002594",
+   "company": "比亚迪",
+   "industry": "新能源与汽车",
+   "kind": "annual",
+   "fiscal_year": 2025,
+   "title": "2025年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-03-28/1225045351.PDF",
+   "disclosure_date": "2026-03-28",
+   "path": "data/raw/cninfo/002594/1225045351.pdf",
+   "bytes": 7533972,
+   "sha256": "710d8b2e08e37ba521f1c4071d2c3e2369d3cadabc21a45073215d9f72138b0b"
+  },
+  {
+   "id": "002594-1222881496",
+   "code": "002594",
+   "company": "比亚迪",
+   "industry": "新能源与汽车",
+   "kind": "annual",
+   "fiscal_year": 2024,
+   "title": "2024年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2025-03-25/1222881496.PDF",
+   "disclosure_date": "2025-03-25",
+   "path": "data/raw/cninfo/002594/1222881496.pdf",
+   "bytes": 10092140,
+   "sha256": "e9c2d7fdd088e151ccb6c8ad3d95587b2b014b10f2c9731508d23ce07fde4de3"
+  },
+  {
+   "id": "002594-1219412018",
+   "code": "002594",
+   "company": "比亚迪",
+   "industry": "新能源与汽车",
+   "kind": "annual",
+   "fiscal_year": 2023,
+   "title": "2023年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2024-03-27/1219412018.PDF",
+   "disclosure_date": "2024-03-27",
+   "path": "data/raw/cninfo/002594/1219412018.pdf",
+   "bytes": 9638124,
+   "sha256": "959b00a12055470a63962303d90557dca90e84d104d92025aeb70805aa7cc036"
+  },
+  {
+   "id": "601012-1225251647",
+   "code": "601012",
+   "company": "隆基绿能",
+   "industry": "新能源与汽车",
+   "kind": "annual",
+   "fiscal_year": 2025,
+   "title": "2025年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-04-29/1225251647.PDF",
+   "disclosure_date": "2026-04-29",
+   "path": "data/raw/cninfo/601012/1225251647.pdf",
+   "bytes": 3311470,
+   "sha256": "10233740d54740b89dfd772eecac5f04d8fef639489acd3b18b1a35e81bce2c1"
+  },
+  {
+   "id": "601012-1223477802",
+   "code": "601012",
+   "company": "隆基绿能",
+   "industry": "新能源与汽车",
+   "kind": "correction",
+   "fiscal_year": 2024,
+   "title": "2024年年度报告（修订版）",
+   "url": "http://static.cninfo.com.cn/finalpage/2025-05-07/1223477802.PDF",
+   "disclosure_date": "2025-05-07",
+   "path": "data/raw/cninfo/601012/1223477802.pdf",
+   "bytes": 1875694,
+   "sha256": "c9e11fc7ec92a59d7d1ccfcf8a4f1fbb35ee8ec0435df16a3e968497b5f64bb8"
+  },
+  {
+   "id": "601012-1223421477",
+   "code": "601012",
+   "company": "隆基绿能",
+   "industry": "新能源与汽车",
+   "kind": "annual",
+   "fiscal_year": 2024,
+   "title": "2024年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2025-04-30/1223421477.PDF",
+   "disclosure_date": "2025-04-30",
+   "path": "data/raw/cninfo/601012/1223421477.pdf",
+   "bytes": 1875585,
+   "sha256": "3dbaf5314ab01f44b58f58e8ad75fea0dce3ced0001db516829f2624b615a3a0"
+  },
+  {
+   "id": "601012-1219925312",
+   "code": "601012",
+   "company": "隆基绿能",
+   "industry": "新能源与汽车",
+   "kind": "annual",
+   "fiscal_year": 2023,
+   "title": "2023年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2024-04-30/1219925312.PDF",
+   "disclosure_date": "2024-04-30",
+   "path": "data/raw/cninfo/601012/1219925312.pdf",
+   "bytes": 5528948,
+   "sha256": "12551fe2d5dce1084ee2f7428516a825bd9fdc2c14bc1cf0ed713c242cff82be"
+  },
+  {
+   "id": "600276-1225032585",
+   "code": "600276",
+   "company": "恒瑞医药",
+   "industry": "医药",
+   "kind": "annual",
+   "fiscal_year": 2025,
+   "title": "恒瑞医药2025年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-03-26/1225032585.PDF",
+   "disclosure_date": "2026-03-26",
+   "path": "data/raw/cninfo/600276/1225032585.pdf",
+   "bytes": 3457175,
+   "sha256": "fae80e2d132f5b6f2bfbb8bcdfd40e1267edb91d689389d63c8e291b0856ace6"
+  },
+  {
+   "id": "600276-1222961962",
+   "code": "600276",
+   "company": "恒瑞医药",
+   "industry": "医药",
+   "kind": "annual",
+   "fiscal_year": 2024,
+   "title": "恒瑞医药2024年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2025-03-31/1222961962.PDF",
+   "disclosure_date": "2025-03-31",
+   "path": "data/raw/cninfo/600276/1222961962.pdf",
+   "bytes": 7710195,
+   "sha256": "7fad40fef23755f81ce5322f45483ea257ef026ebf1f7f5655c8d5998d7049fc"
+  },
+  {
+   "id": "600276-1219650115",
+   "code": "600276",
+   "company": "恒瑞医药",
+   "industry": "医药",
+   "kind": "annual",
+   "fiscal_year": 2023,
+   "title": "恒瑞医药2023年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2024-04-18/1219650115.PDF",
+   "disclosure_date": "2024-04-18",
+   "path": "data/raw/cninfo/600276/1219650115.pdf",
+   "bytes": 6014937,
+   "sha256": "4fe601137654acbb46898486bb61501678ba952426e66e7b0efbbd8fa48639cc"
+  },
+  {
+   "id": "300760-1225059012",
+   "code": "300760",
+   "company": "迈瑞医疗",
+   "industry": "医药",
+   "kind": "annual",
+   "fiscal_year": 2025,
+   "title": "2025年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-03-31/1225059012.PDF",
+   "disclosure_date": "2026-03-31",
+   "path": "data/raw/cninfo/300760/1225059012.pdf",
+   "bytes": 3510641,
+   "sha256": "b740bc7c4c8839639cf1f86ad0ebac0405924c9b2b595958509e6d8659ba41c3"
+  },
+  {
+   "id": "300760-1223371173",
+   "code": "300760",
+   "company": "迈瑞医疗",
+   "industry": "医药",
+   "kind": "annual",
+   "fiscal_year": 2024,
+   "title": "2024年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2025-04-29/1223371173.PDF",
+   "disclosure_date": "2025-04-29",
+   "path": "data/raw/cninfo/300760/1223371173.pdf",
+   "bytes": 8691816,
+   "sha256": "4bb8bfaa68fbbe2c9a07198a32e3228ecfcf067e1ddd42fa44fa52fdca63622b"
+  },
+  {
+   "id": "300760-1219856065",
+   "code": "300760",
+   "company": "迈瑞医疗",
+   "industry": "医药",
+   "kind": "annual",
+   "fiscal_year": 2023,
+   "title": "2023年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2024-04-27/1219856065.PDF",
+   "disclosure_date": "2024-04-27",
+   "path": "data/raw/cninfo/300760/1219856065.pdf",
+   "bytes": 7322175,
+   "sha256": "9659c94de7c62249e711711daf13ebf8ec978476fa42edfb8178ea9ccf2afa88"
+  },
+  {
+   "id": "603259-1225025225",
+   "code": "603259",
+   "company": "药明康德",
+   "industry": "医药",
+   "kind": "annual",
+   "fiscal_year": 2025,
+   "title": "2025年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-03-24/1225025225.PDF",
+   "disclosure_date": "2026-03-24",
+   "path": "data/raw/cninfo/603259/1225025225.pdf",
+   "bytes": 1608226,
+   "sha256": "7f1431d66eae399d4b35639bb650e23287c7f52dacbb47b4b4a197fb5026d6a2"
+  },
+  {
+   "id": "603259-1222822835",
+   "code": "603259",
+   "company": "药明康德",
+   "industry": "医药",
+   "kind": "annual",
+   "fiscal_year": 2024,
+   "title": "2024年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2025-03-18/1222822835.PDF",
+   "disclosure_date": "2025-03-18",
+   "path": "data/raw/cninfo/603259/1222822835.pdf",
+   "bytes": 5137851,
+   "sha256": "33e6a6e147b23bb9d5e7dbddbcba31b19547ff63e5b55d376da1b8aa3014ddeb"
+  },
+  {
+   "id": "603259-1219331349",
+   "code": "603259",
+   "company": "药明康德",
+   "industry": "医药",
+   "kind": "annual",
+   "fiscal_year": 2023,
+   "title": "2023年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2024-03-19/1219331349.PDF",
+   "disclosure_date": "2024-03-19",
+   "path": "data/raw/cninfo/603259/1219331349.pdf",
+   "bytes": 4992527,
+   "sha256": "ed750b30a9d3f58ffbb4649fd2f04d50d7010adb3103cd3206692098162441e3"
+  },
+  {
+   "id": "002415-1225123062",
+   "code": "002415",
+   "company": "海康威视",
+   "industry": "电子与半导体",
+   "kind": "annual",
+   "fiscal_year": 2025,
+   "title": "2025年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-04-18/1225123062.PDF",
+   "disclosure_date": "2026-04-18",
+   "path": "data/raw/cninfo/002415/1225123062.pdf",
+   "bytes": 17337277,
+   "sha256": "a805779efb81bea8158e119ad7c733c4669b8d492dc03c7613199970bfa4b8b2"
+  },
+  {
+   "id": "002415-1223153152",
+   "code": "002415",
+   "company": "海康威视",
+   "industry": "电子与半导体",
+   "kind": "annual",
+   "fiscal_year": 2024,
+   "title": "2024年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2025-04-19/1223153152.PDF",
+   "disclosure_date": "2025-04-19",
+   "path": "data/raw/cninfo/002415/1223153152.pdf",
+   "bytes": 12527217,
+   "sha256": "f1a8771d81d6ed723c4d1a7d552400cf408cca4752033f5bbd0f88ae2729757b"
+  },
+  {
+   "id": "002415-1219703072",
+   "code": "002415",
+   "company": "海康威视",
+   "industry": "电子与半导体",
+   "kind": "annual",
+   "fiscal_year": 2023,
+   "title": "2023年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2024-04-20/1219703072.PDF",
+   "disclosure_date": "2024-04-20",
+   "path": "data/raw/cninfo/002415/1219703072.pdf",
+   "bytes": 10136455,
+   "sha256": "258cd87781e0ea36f2e4e73521d8e6c4ab740612969102d2c31a6ac279f5f67f"
+  },
+  {
+   "id": "002475-1225104908",
+   "code": "002475",
+   "company": "立讯精密",
+   "industry": "电子与半导体",
+   "kind": "annual",
+   "fiscal_year": 2025,
+   "title": "2025年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-04-15/1225104908.PDF",
+   "disclosure_date": "2026-04-15",
+   "path": "data/raw/cninfo/002475/1225104908.pdf",
+   "bytes": 5000312,
+   "sha256": "957556c331a237cc3235b63659e884c7e1e877b6460f06d5039159f1598e4e46"
+  },
+  {
+   "id": "002475-1223326862",
+   "code": "002475",
+   "company": "立讯精密",
+   "industry": "电子与半导体",
+   "kind": "annual",
+   "fiscal_year": 2024,
+   "title": "2024年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2025-04-26/1223326862.PDF",
+   "disclosure_date": "2025-04-26",
+   "path": "data/raw/cninfo/002475/1223326862.pdf",
+   "bytes": 1698863,
+   "sha256": "e436b5ab1775cfa05aacb4a16dd8e5c6b89e926ed18a7a55a86728bab6fcb1da"
+  },
+  {
+   "id": "002475-1219799516",
+   "code": "002475",
+   "company": "立讯精密",
+   "industry": "电子与半导体",
+   "kind": "annual",
+   "fiscal_year": 2023,
+   "title": "2023年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2024-04-25/1219799516.PDF",
+   "disclosure_date": "2024-04-25",
+   "path": "data/raw/cninfo/002475/1219799516.pdf",
+   "bytes": 10427619,
+   "sha256": "631d4d331124b052a1c0bf9b5e2414f53866ec9c595fd8d8c9047c8dd24f6b66"
+  },
+  {
+   "id": "688981-1225037057",
+   "code": "688981",
+   "company": "中芯国际",
+   "industry": "电子与半导体",
+   "kind": "annual",
+   "fiscal_year": 2025,
+   "title": "中芯国际2025年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-03-27/1225037057.PDF",
+   "disclosure_date": "2026-03-27",
+   "path": "data/raw/cninfo/688981/1225037057.pdf",
+   "bytes": 1697396,
+   "sha256": "c022cf9323967f66a239ce4f60b30507bc341db6e660a53db9c2966a9ef35531"
+  },
+  {
+   "id": "688981-1222924320",
+   "code": "688981",
+   "company": "中芯国际",
+   "industry": "电子与半导体",
+   "kind": "annual",
+   "fiscal_year": 2024,
+   "title": "中芯国际2024年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2025-03-28/1222924320.PDF",
+   "disclosure_date": "2025-03-28",
+   "path": "data/raw/cninfo/688981/1222924320.pdf",
+   "bytes": 3678523,
+   "sha256": "d0d08d761acb9c16f88343e313a893be17469d21e96042556378631d069924d1"
+  },
+  {
+   "id": "688981-1219447098",
+   "code": "688981",
+   "company": "中芯国际",
+   "industry": "电子与半导体",
+   "kind": "annual",
+   "fiscal_year": 2023,
+   "title": "中芯国际2023年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2024-03-29/1219447098.PDF",
+   "disclosure_date": "2024-03-29",
+   "path": "data/raw/cninfo/688981/1219447098.pdf",
+   "bytes": 3898624,
+   "sha256": "c26951660ae179cd1880b509d8cf5bbd4d55eb4a30254fc183d598149d815c8c"
+  },
+  {
+   "id": "000725-1225068510",
+   "code": "000725",
+   "company": "京东方A",
+   "industry": "电子与半导体",
+   "kind": "annual",
+   "fiscal_year": 2025,
+   "title": "2025年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-04-01/1225068510.PDF",
+   "disclosure_date": "2026-04-01",
+   "path": "data/raw/cninfo/000725/1225068510.pdf",
+   "bytes": 1860151,
+   "sha256": "34ba47131763d6992d0997e714fa2e741e38abbfbcb7b6f537cfe2fdb97b1a80"
+  },
+  {
+   "id": "000725-1223193313",
+   "code": "000725",
+   "company": "京东方A",
+   "industry": "电子与半导体",
+   "kind": "annual",
+   "fiscal_year": 2024,
+   "title": "2024年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2025-04-22/1223193313.PDF",
+   "disclosure_date": "2025-04-22",
+   "path": "data/raw/cninfo/000725/1223193313.pdf",
+   "bytes": 6124392,
+   "sha256": "a13a980ddbe73eb14809d83b15571db07dd97d918c5b388775ec6b71049e75ba"
+  },
+  {
+   "id": "000725-1219494121",
+   "code": "000725",
+   "company": "京东方A",
+   "industry": "电子与半导体",
+   "kind": "annual",
+   "fiscal_year": 2023,
+   "title": "2023年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2024-04-02/1219494121.PDF",
+   "disclosure_date": "2024-04-02",
+   "path": "data/raw/cninfo/000725/1219494121.pdf",
+   "bytes": 6731637,
+   "sha256": "eef1ea3583fd9c7a82ba863dcc765ef486f298f14ebfaf39bfdd084e942af389"
+  },
+  {
+   "id": "600941-1225036280",
+   "code": "600941",
+   "company": "中国移动",
+   "industry": "通信",
+   "kind": "annual",
+   "fiscal_year": 2025,
+   "title": "中国移动：2025年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-03-27/1225036280.PDF",
+   "disclosure_date": "2026-03-27",
+   "path": "data/raw/cninfo/600941/1225036280.pdf",
+   "bytes": 3158841,
+   "sha256": "8bde14d742b4869c344cc525ed892ec928d2eadf57757945c7e5a0e5bc3c7684"
+  },
+  {
+   "id": "600941-1222856315",
+   "code": "600941",
+   "company": "中国移动",
+   "industry": "通信",
+   "kind": "annual",
+   "fiscal_year": 2024,
+   "title": "中国移动：2024年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2025-03-21/1222856315.PDF",
+   "disclosure_date": "2025-03-21",
+   "path": "data/raw/cninfo/600941/1222856315.pdf",
+   "bytes": 3199524,
+   "sha256": "9320df7bbb9de076b0fcf8ac9286457792d048f957c9ed908b31a7d9b39e7c5a"
+  },
+  {
+   "id": "600941-1219372942",
+   "code": "600941",
+   "company": "中国移动",
+   "industry": "通信",
+   "kind": "annual",
+   "fiscal_year": 2023,
+   "title": "中国移动：2023年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2024-03-22/1219372942.PDF",
+   "disclosure_date": "2024-03-22",
+   "path": "data/raw/cninfo/600941/1219372942.pdf",
+   "bytes": 3105128,
+   "sha256": "b74aeb46467a0c9551d707e7246ff7a832cd1446eb1924d6d754824a1d9c7b99"
+  },
+  {
+   "id": "601728-1225027302",
+   "code": "601728",
+   "company": "中国电信",
+   "industry": "通信",
+   "kind": "annual",
+   "fiscal_year": 2025,
+   "title": "中国电信股份有限公司2025年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-03-25/1225027302.PDF",
+   "disclosure_date": "2026-03-25",
+   "path": "data/raw/cninfo/601728/1225027302.pdf",
+   "bytes": 4762019,
+   "sha256": "49363fc60e3161a00ec5721555aa8100f7813d06223255458aa6adff5d569293"
+  },
+  {
+   "id": "601728-1222894586",
+   "code": "601728",
+   "company": "中国电信",
+   "industry": "通信",
+   "kind": "annual",
+   "fiscal_year": 2024,
+   "title": "中国电信股份有限公司2024年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2025-03-26/1222894586.PDF",
+   "disclosure_date": "2025-03-26",
+   "path": "data/raw/cninfo/601728/1222894586.pdf",
+   "bytes": 6108517,
+   "sha256": "7cb13ffbf8cf97b8ad5d794d0402f31a274a648f7c1827ed9132596dac9deebd"
+  },
+  {
+   "id": "601728-1219408348",
+   "code": "601728",
+   "company": "中国电信",
+   "industry": "通信",
+   "kind": "annual",
+   "fiscal_year": 2023,
+   "title": "中国电信股份有限公司2023年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2024-03-27/1219408348.PDF",
+   "disclosure_date": "2024-03-27",
+   "path": "data/raw/cninfo/601728/1219408348.pdf",
+   "bytes": 4710732,
+   "sha256": "28f187a72cd9c6a61ca73e07f30fc79a3d0379fe3bdd8dddbecefd8a116f3714"
+  },
+  {
+   "id": "600900-1225262036",
+   "code": "600900",
+   "company": "长江电力",
+   "industry": "能源与资源",
+   "kind": "annual",
+   "fiscal_year": 2025,
+   "title": "长江电力2025年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-04-30/1225262036.PDF",
+   "disclosure_date": "2026-04-30",
+   "path": "data/raw/cninfo/600900/1225262036.pdf",
+   "bytes": 1533692,
+   "sha256": "aa0cdb92e3aad81b1e6454594a64cacbcfeb9013b10dd31f47a93a94e7a70f91"
+  },
+  {
+   "id": "600900-1223421172",
+   "code": "600900",
+   "company": "长江电力",
+   "industry": "能源与资源",
+   "kind": "annual",
+   "fiscal_year": 2024,
+   "title": "长江电力2024年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2025-04-30/1223421172.PDF",
+   "disclosure_date": "2025-04-30",
+   "path": "data/raw/cninfo/600900/1223421172.pdf",
+   "bytes": 1711311,
+   "sha256": "556767ca1f7c06bb679c827aa6522ff9927d2a63dc2ab64b57194fdc57192048"
+  },
+  {
+   "id": "600900-1219922588",
+   "code": "600900",
+   "company": "长江电力",
+   "industry": "能源与资源",
+   "kind": "annual",
+   "fiscal_year": 2023,
+   "title": "长江电力2023年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2024-04-30/1219922588.PDF",
+   "disclosure_date": "2024-04-30",
+   "path": "data/raw/cninfo/600900/1219922588.pdf",
+   "bytes": 1799710,
+   "sha256": "a32aa92211f533bef9bd426a29158060d6bed4a31fca6c9f6805fd8659c90d38"
+  },
+  {
+   "id": "601088-1225064293",
+   "code": "601088",
+   "company": "中国神华",
+   "industry": "能源与资源",
+   "kind": "annual",
+   "fiscal_year": 2025,
+   "title": "中国神华2025年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-03-31/1225064293.PDF",
+   "disclosure_date": "2026-03-31",
+   "path": "data/raw/cninfo/601088/1225064293.pdf",
+   "bytes": 6100255,
+   "sha256": "7068df1231922b8a2fcfd0336d9ae6550dabf7c7edc152d680089df8cc126bd2"
+  },
+  {
+   "id": "601088-1222870380",
+   "code": "601088",
+   "company": "中国神华",
+   "industry": "能源与资源",
+   "kind": "annual",
+   "fiscal_year": 2024,
+   "title": "中国神华2024年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2025-03-22/1222870380.PDF",
+   "disclosure_date": "2025-03-22",
+   "path": "data/raw/cninfo/601088/1222870380.pdf",
+   "bytes": 7282829,
+   "sha256": "4b3a8db26ae2fb07083966fadea0f92535cfbe6d0791c3318c6511113b138e8f"
+  },
+  {
+   "id": "601088-1219390021",
+   "code": "601088",
+   "company": "中国神华",
+   "industry": "能源与资源",
+   "kind": "annual",
+   "fiscal_year": 2023,
+   "title": "中国神华2023年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2024-03-23/1219390021.PDF",
+   "disclosure_date": "2024-03-23",
+   "path": "data/raw/cninfo/601088/1219390021.pdf",
+   "bytes": 7175196,
+   "sha256": "451aaacb1779c2572807a0f25985d8c18db355c2b40f3eef0a673210c9820bf9"
+  },
+  {
+   "id": "601899-1225550242",
+   "code": "601899",
+   "company": "紫金矿业",
+   "industry": "能源与资源",
+   "kind": "annual",
+   "fiscal_year": 2025,
+   "title": "紫金矿业集团股份有限公司2025年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-03-21/1225550242.PDF",
+   "disclosure_date": "2026-03-21",
+   "path": "data/raw/cninfo/601899/1225550242.pdf",
+   "bytes": 79925886,
+   "sha256": "01819e1c7daad939d1779a8aa729f50f02151192e609cb28c2c405634a8f343d"
+  },
+  {
+   "id": "601899-1225550234",
+   "code": "601899",
+   "company": "紫金矿业",
+   "industry": "能源与资源",
+   "kind": "annual",
+   "fiscal_year": 2024,
+   "title": "紫金矿业集团股份有限公司2024年年报报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2025-03-22/1225550234.PDF",
+   "disclosure_date": "2025-03-22",
+   "path": "data/raw/cninfo/601899/1225550234.pdf",
+   "bytes": 32100114,
+   "sha256": "004f733e709beea878229ae02b80a952c543129037fc940aaf01b77dfa977a89"
+  },
+  {
+   "id": "601899-1225550239",
+   "code": "601899",
+   "company": "紫金矿业",
+   "industry": "能源与资源",
+   "kind": "annual",
+   "fiscal_year": 2023,
+   "title": "紫金矿业集团股份有限公司2023年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2024-03-23/1225550239.PDF",
+   "disclosure_date": "2024-03-23",
+   "path": "data/raw/cninfo/601899/1225550239.pdf",
+   "bytes": 15779180,
+   "sha256": "2007e9f79034ac154c5cdc066f8f9a1145bdb1cd5ef4a12287ab63a3dfa93268"
+  },
+  {
+   "id": "601899-1225550225",
+   "code": "601899",
+   "company": "紫金矿业",
+   "industry": "能源与资源",
+   "kind": "correction",
+   "fiscal_year": null,
+   "title": "紫金矿业集团股份有限公司关于定期报告财务报表附注部分相关文字错误的更正公告",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-09-05/1225550225.PDF",
+   "disclosure_date": "2026-09-05",
+   "path": "data/raw/cninfo/601899/1225550225.pdf",
+   "bytes": 90980,
+   "sha256": "89a67ac3a5df292d27eef391d10a1bd3b33fc216eec438ef22dc46c01900e459"
+  },
+  {
+   "id": "000002-1225067794",
+   "code": "000002",
+   "company": "万科A",
+   "industry": "地产与化工",
+   "kind": "annual",
+   "fiscal_year": 2025,
+   "title": "2025年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-04-01/1225067794.PDF",
+   "disclosure_date": "2026-04-01",
+   "path": "data/raw/cninfo/000002/1225067794.pdf",
+   "bytes": 6696262,
+   "sha256": "b2befc9da2a9e09c798702c351e6af65a4b148e32baa07737b941edc2caf1eba"
+  },
+  {
+   "id": "000002-1222974139",
+   "code": "000002",
+   "company": "万科A",
+   "industry": "地产与化工",
+   "kind": "annual",
+   "fiscal_year": 2024,
+   "title": "2024年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2025-04-01/1222974139.PDF",
+   "disclosure_date": "2025-04-01",
+   "path": "data/raw/cninfo/000002/1222974139.pdf",
+   "bytes": 9908485,
+   "sha256": "734370d32036c1a18716e42f2e96c0f6ffd8a48c1fe115ecda945a09eb416ac0"
+  },
+  {
+   "id": "000002-1219487237",
+   "code": "000002",
+   "company": "万科A",
+   "industry": "地产与化工",
+   "kind": "annual",
+   "fiscal_year": 2023,
+   "title": "2023年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2024-03-29/1219487237.PDF",
+   "disclosure_date": "2024-03-29",
+   "path": "data/raw/cninfo/000002/1219487237.pdf",
+   "bytes": 10999883,
+   "sha256": "511a089558610e86605841f39b98f67993bd444c1e23018a204e704706882d0d"
+  },
+  {
+   "id": "600309-1225130793",
+   "code": "600309",
+   "company": "万华化学",
+   "industry": "地产与化工",
+   "kind": "annual",
+   "fiscal_year": 2025,
+   "title": "万华化学2025年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-04-21/1225130793.PDF",
+   "disclosure_date": "2026-04-21",
+   "path": "data/raw/cninfo/600309/1225130793.pdf",
+   "bytes": 1664944,
+   "sha256": "766717cc1a3b74221d4a20892b28152b3180ef5c63d683623e8a903eebddac95"
+  },
+  {
+   "id": "600309-1223097325",
+   "code": "600309",
+   "company": "万华化学",
+   "industry": "地产与化工",
+   "kind": "annual",
+   "fiscal_year": 2024,
+   "title": "万华化学2024年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2025-04-15/1223097325.PDF",
+   "disclosure_date": "2025-04-15",
+   "path": "data/raw/cninfo/600309/1223097325.pdf",
+   "bytes": 4804744,
+   "sha256": "0c37e70c554609f4a22990fd97f3da4ee92bb717e44d641ac7800083789d4df7"
+  },
+  {
+   "id": "600309-1219331064",
+   "code": "600309",
+   "company": "万华化学",
+   "industry": "地产与化工",
+   "kind": "annual",
+   "fiscal_year": 2023,
+   "title": "万华化学2023年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2024-03-19/1219331064.PDF",
+   "disclosure_date": "2024-03-19",
+   "path": "data/raw/cninfo/600309/1219331064.pdf",
+   "bytes": 4647177,
+   "sha256": "64eb90a55396add030faaa7a05996fdd5f0095c1c26f0f1309ab6f19522991f1"
+  },
+  {
+   "id": "600031-1225061378",
+   "code": "600031",
+   "company": "三一重工",
+   "industry": "制造与物流",
+   "kind": "annual",
+   "fiscal_year": 2025,
+   "title": "三一重工股份有限公司2025年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-03-31/1225061378.PDF",
+   "disclosure_date": "2026-03-31",
+   "path": "data/raw/cninfo/600031/1225061378.pdf",
+   "bytes": 1682689,
+   "sha256": "d3f470600ec7d03ff9eb6257a74d1a07486406e02beb55b1f2bab5aaabb173e5"
+  },
+  {
+   "id": "600031-1223129214",
+   "code": "600031",
+   "company": "三一重工",
+   "industry": "制造与物流",
+   "kind": "annual",
+   "fiscal_year": 2024,
+   "title": "三一重工股份有限公司2024年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2025-04-18/1223129214.PDF",
+   "disclosure_date": "2025-04-18",
+   "path": "data/raw/cninfo/600031/1223129214.pdf",
+   "bytes": 5378376,
+   "sha256": "09b21df2cef24fd85b4efa625579138241ae1de4fa7ad4f2c9fcef0c694a0d1a"
+  },
+  {
+   "id": "600031-1219890100",
+   "code": "600031",
+   "company": "三一重工",
+   "industry": "制造与物流",
+   "kind": "annual",
+   "fiscal_year": 2023,
+   "title": "三一重工股份有限公司2023年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2024-04-29/1219890100.PDF",
+   "disclosure_date": "2024-04-29",
+   "path": "data/raw/cninfo/600031/1219890100.pdf",
+   "bytes": 5222615,
+   "sha256": "4cab0da4413e97becc91cac969d4cd19dc0fb87d8645d750424e1bdf600ebee9"
+  },
+  {
+   "id": "002352-1225057387",
+   "code": "002352",
+   "company": "顺丰控股",
+   "industry": "制造与物流",
+   "kind": "annual",
+   "fiscal_year": 2025,
+   "title": "2025年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2026-03-31/1225057387.PDF",
+   "disclosure_date": "2026-03-31",
+   "path": "data/raw/cninfo/002352/1225057387.pdf",
+   "bytes": 23740184,
+   "sha256": "240c05b80783bc350ba9fedf22487bc4ed0e370ccd3943ed6c2736de06050ae2"
+  },
+  {
+   "id": "002352-1222943385",
+   "code": "002352",
+   "company": "顺丰控股",
+   "industry": "制造与物流",
+   "kind": "annual",
+   "fiscal_year": 2024,
+   "title": "2024年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2025-03-29/1222943385.PDF",
+   "disclosure_date": "2025-03-29",
+   "path": "data/raw/cninfo/002352/1222943385.pdf",
+   "bytes": 34155294,
+   "sha256": "e17ec642bafcdade70524523a6fdda031d75accf57c034d96a3595933645025d"
+  },
+  {
+   "id": "002352-1219410699",
+   "code": "002352",
+   "company": "顺丰控股",
+   "industry": "制造与物流",
+   "kind": "annual",
+   "fiscal_year": 2023,
+   "title": "2023年年度报告",
+   "url": "http://static.cninfo.com.cn/finalpage/2024-03-27/1219410699.PDF",
+   "disclosure_date": "2024-03-27",
+   "path": "data/raw/cninfo/002352/1219410699.pdf",
+   "bytes": 58255551,
+   "sha256": "f6b8df37483caf043756a4c06249d99b994cae0157ed797a1344229091411a5c"
+  }
+ ],
+ "gaps": [],
+ "failures": [],
+ "skipped": [
+  {
+   "code": "600036",
+   "title": "招商银行股份有限公司2025年度报告摘要",
+   "announcement_id": "1225047778"
+  },
+  {
+   "code": "600036",
+   "title": "招商银行股份有限公司2024年度报告摘要",
+   "announcement_id": "1222895153"
+  },
+  {
+   "code": "600036",
+   "title": "招商银行股份有限公司2023年度报告摘要",
+   "announcement_id": "1219403501"
+  },
+  {
+   "code": "601398",
+   "title": "工商银行2025年度报告摘要",
+   "announcement_id": "1225046871"
+  },
+  {
+   "code": "601398",
+   "title": "工商银行2024年度报告摘要",
+   "announcement_id": "1222948910"
+  },
+  {
+   "code": "601398",
+   "title": "工商银行2023年度报告摘要",
+   "announcement_id": "1219429140"
+  },
+  {
+   "code": "601166",
+   "title": "兴业银行2025年年度报告摘要",
+   "announcement_id": "1225039289"
+  },
+  {
+   "code": "601166",
+   "title": "兴业银行2024年年度报告摘要",
+   "announcement_id": "1222927164"
+  },
+  {
+   "code": "601166",
+   "title": "兴业银行2023年年度报告摘要",
+   "announcement_id": "1219445690"
+  },
+  {
+   "code": "601318",
+   "title": "中国平安2025年年度报告摘要",
+   "announcement_id": "1225038326"
+  },
+  {
+   "code": "601318",
+   "title": "中国平安：平安银行股份有限公司2025年年度报告摘要",
+   "announcement_id": "1225023541"
+  },
+  {
+   "code": "601318",
+   "title": "中国平安2024年年度报告摘要",
+   "announcement_id": "1222847467"
+  },
+  {
+   "code": "601318",
+   "title": "中国平安：平安银行股份有限公司2024年年度报告摘要",
+   "announcement_id": "1222807195"
+  },
+  {
+   "code": "601318",
+   "title": "中国平安2023年年度报告摘要",
+   "announcement_id": "1219376077"
+  },
+  {
+   "code": "601318",
+   "title": "中国平安：平安银行股份有限公司2023年年度报告摘要",
+   "announcement_id": "1219307141"
+  },
+  {
+   "code": "600030",
+   "title": "中信证券股份有限公司2025年年度报告摘要",
+   "announcement_id": "1225036048"
+  },
+  {
+   "code": "600030",
+   "title": "中信证券股份有限公司2024年年度报告摘要",
+   "announcement_id": "1222912831"
+  },
+  {
+   "code": "600030",
+   "title": "中信证券股份有限公司2023年年度报告摘要",
+   "announcement_id": "1219411927"
+  },
+  {
+   "code": "300059",
+   "title": "2025年年度报告摘要",
+   "announcement_id": "1225019508"
+  },
+  {
+   "code": "300059",
+   "title": "2024年年度报告摘要",
+   "announcement_id": "1222806715"
+  },
+  {
+   "code": "300059",
+   "title": "2023年年度报告摘要",
+   "announcement_id": "1219307756"
+  },
+  {
+   "code": "600519",
+   "title": "贵州茅台2025年年度报告（英文版）",
+   "announcement_id": "1225114733"
+  },
+  {
+   "code": "600519",
+   "title": "贵州茅台2025年年度报告摘要",
+   "announcement_id": "1225114731"
+  },
+  {
+   "code": "600519",
+   "title": "贵州茅台2024年年度报告（英文版）",
+   "announcement_id": "1222993912"
+  },
+  {
+   "code": "600519",
+   "title": "贵州茅台2024年年度报告摘要",
+   "announcement_id": "1222993909"
+  },
+  {
+   "code": "600519",
+   "title": "贵州茅台2023年年度报告摘要",
+   "announcement_id": "1219506504"
+  },
+  {
+   "code": "600519",
+   "title": "贵州茅台2023年年度报告（英文版）",
+   "announcement_id": "1219506497"
+  },
+  {
+   "code": "000858",
+   "title": "2025年度报告（英文版）",
+   "announcement_id": "1225324762"
+  },
+  {
+   "code": "000858",
+   "title": "2025年年度报告摘要",
+   "announcement_id": "1225273090"
+  },
+  {
+   "code": "000858",
+   "title": "2024年度报告（英文版）",
+   "announcement_id": "1223644575"
+  },
+  {
+   "code": "000858",
+   "title": "2024年年度报告摘要",
+   "announcement_id": "1223311582"
+  },
+  {
+   "code": "000858",
+   "title": "2023年度报告（英文）",
+   "announcement_id": "1220225927"
+  },
+  {
+   "code": "000858",
+   "title": "2023年年度报告摘要",
+   "announcement_id": "1219873639"
+  },
+  {
+   "code": "000858",
+   "title": "关于前期会计差错更正的公告",
+   "announcement_id": "1225273122"
+  },
+  {
+   "code": "600887",
+   "title": "内蒙古伊利实业集团股份有限公司2025年年度报告摘要",
+   "announcement_id": "1225259602"
+  },
+  {
+   "code": "600887",
+   "title": "内蒙古伊利实业集团股份有限公司2024年年度报告摘要",
+   "announcement_id": "1223421131"
+  },
+  {
+   "code": "600887",
+   "title": "内蒙古伊利实业集团股份有限公司2023年年度报告摘要",
+   "announcement_id": "1219916440"
+  },
+  {
+   "code": "000333",
+   "title": "2025年年度报告摘要",
+   "announcement_id": "1225058109"
+  },
+  {
+   "code": "000333",
+   "title": "2024年年度报告摘要",
+   "announcement_id": "1222951198"
+  },
+  {
+   "code": "000333",
+   "title": "2023年年度报告（英文版）",
+   "announcement_id": "1219636027"
+  },
+  {
+   "code": "000333",
+   "title": "2023年年度报告摘要",
+   "announcement_id": "1219429369"
+  },
+  {
+   "code": "000651",
+   "title": "2025年年度报告（英文版）",
+   "announcement_id": "1225374514"
+  },
+  {
+   "code": "000651",
+   "title": "2025年年度报告摘要",
+   "announcement_id": "1225250395"
+  },
+  {
+   "code": "000651",
+   "title": "2024年年度报告（英文版）",
+   "announcement_id": "1223836182"
+  },
+  {
+   "code": "000651",
+   "title": "2024年年度报告摘要",
+   "announcement_id": "1223330640"
+  },
+  {
+   "code": "000651",
+   "title": "2023年年度报告（英文版）",
+   "announcement_id": "1220300050"
+  },
+  {
+   "code": "000651",
+   "title": "2023年年度报告摘要",
+   "announcement_id": "1219928435"
+  },
+  {
+   "code": "300750",
+   "title": "2025年年度报告摘要",
+   "announcement_id": "1225002213"
+  },
+  {
+   "code": "300750",
+   "title": "2024年年度报告摘要",
+   "announcement_id": "1222806928"
+  },
+  {
+   "code": "300750",
+   "title": "2023年年度报告摘要",
+   "announcement_id": "1219313048"
+  },
+  {
+   "code": "002594",
+   "title": "2025年年度报告摘要",
+   "announcement_id": "1225045350"
+  },
+  {
+   "code": "002594",
+   "title": "2024年年度报告摘要",
+   "announcement_id": "1222881505"
+  },
+  {
+   "code": "002594",
+   "title": "2023年年度报告摘要",
+   "announcement_id": "1219412041"
+  },
+  {
+   "code": "601012",
+   "title": "2025年年度报告摘要",
+   "announcement_id": "1225251679"
+  },
+  {
+   "code": "601012",
+   "title": "2024年年度报告摘要",
+   "announcement_id": "1223421484"
+  },
+  {
+   "code": "601012",
+   "title": "2023年年度报告摘要",
+   "announcement_id": "1219925323"
+  },
+  {
+   "code": "601012",
+   "title": "更正公告",
+   "announcement_id": "1223477804"
+  },
+  {
+   "code": "600276",
+   "title": "恒瑞医药2025年年度报告摘要",
+   "announcement_id": "1225032582"
+  },
+  {
+   "code": "600276",
+   "title": "恒瑞医药2024年年度报告摘要",
+   "announcement_id": "1222961969"
+  },
+  {
+   "code": "600276",
+   "title": "恒瑞医药2023年年度报告摘要",
+   "announcement_id": "1219650094"
+  },
+  {
+   "code": "300760",
+   "title": "2025年年度报告摘要",
+   "announcement_id": "1225059011"
+  },
+  {
+   "code": "300760",
+   "title": "2024年年度报告摘要",
+   "announcement_id": "1223371149"
+  },
+  {
+   "code": "300760",
+   "title": "2023年年度报告摘要",
+   "announcement_id": "1219856116"
+  },
+  {
+   "code": "603259",
+   "title": "2025年年度报告摘要",
+   "announcement_id": "1225025212"
+  },
+  {
+   "code": "603259",
+   "title": "2024年年度报告摘要",
+   "announcement_id": "1222822845"
+  },
+  {
+   "code": "603259",
+   "title": "2023年年度报告摘要",
+   "announcement_id": "1219331366"
+  },
+  {
+   "code": "002415",
+   "title": "2025年年度报告（英文版）",
+   "announcement_id": "1225184923"
+  },
+  {
+   "code": "002415",
+   "title": "2025年年度报告摘要",
+   "announcement_id": "1225123061"
+  },
+  {
+   "code": "002415",
+   "title": "2024年年度报告（英文版）",
+   "announcement_id": "1223313059"
+  },
+  {
+   "code": "002415",
+   "title": "2024年年度报告摘要",
+   "announcement_id": "1223153108"
+  },
+  {
+   "code": "002415",
+   "title": "2023年年度报告（英文版）",
+   "announcement_id": "1219860298"
+  },
+  {
+   "code": "002415",
+   "title": "2023年年度报告摘要",
+   "announcement_id": "1219703116"
+  },
+  {
+   "code": "002475",
+   "title": "2025年年度报告(英文版）",
+   "announcement_id": "1225373512"
+  },
+  {
+   "code": "002475",
+   "title": "2025年年度报告摘要",
+   "announcement_id": "1225104907"
+  },
+  {
+   "code": "002475",
+   "title": "2024年年度报告（英文版）",
+   "announcement_id": "1223825742"
+  },
+  {
+   "code": "002475",
+   "title": "2024年年度报告摘要",
+   "announcement_id": "1223326864"
+  },
+  {
+   "code": "002475",
+   "title": "2023年年度报告（英文版）",
+   "announcement_id": "1220108907"
+  },
+  {
+   "code": "002475",
+   "title": "2023年年度报告摘要",
+   "announcement_id": "1219799504"
+  },
+  {
+   "code": "688981",
+   "title": "港股公告：2025年年报",
+   "announcement_id": "1225084819"
+  },
+  {
+   "code": "688981",
+   "title": "中芯国际2025年年度报告摘要",
+   "announcement_id": "1225037116"
+  },
+  {
+   "code": "688981",
+   "title": "中芯国际2024年年度报告摘要",
+   "announcement_id": "1222924319"
+  },
+  {
+   "code": "688981",
+   "title": "港股公告：2023年报",
+   "announcement_id": "1219551798"
+  },
+  {
+   "code": "688981",
+   "title": "中芯国际2023年年度报告摘要",
+   "announcement_id": "1219447110"
+  },
+  {
+   "code": "000725",
+   "title": "2025年年度报告摘要",
+   "announcement_id": "1225068509"
+  },
+  {
+   "code": "000725",
+   "title": "2024年年度报告摘要",
+   "announcement_id": "1223193329"
+  },
+  {
+   "code": "000725",
+   "title": "2023年年度报告摘要",
+   "announcement_id": "1219494136"
+  },
+  {
+   "code": "600941",
+   "title": "中国移动：2025年年度报告摘要",
+   "announcement_id": "1225036258"
+  },
+  {
+   "code": "600941",
+   "title": "中国移动：2024年年度报告摘要",
+   "announcement_id": "1222856328"
+  },
+  {
+   "code": "600941",
+   "title": "中国移动：2023年年度报告摘要",
+   "announcement_id": "1219372949"
+  },
+  {
+   "code": "601728",
+   "title": "中国电信股份有限公司2025年年度报告摘要",
+   "announcement_id": "1225027317"
+  },
+  {
+   "code": "601728",
+   "title": "中国电信股份有限公司2024年年度报告摘要",
+   "announcement_id": "1222894601"
+  },
+  {
+   "code": "601728",
+   "title": "中国电信股份有限公司2023年年度报告摘要",
+   "announcement_id": "1219408329"
+  },
+  {
+   "code": "600900",
+   "title": "长江电力2025年年度报告摘要",
+   "announcement_id": "1225262042"
+  },
+  {
+   "code": "600900",
+   "title": "长江电力2024年年度报告摘要",
+   "announcement_id": "1223421164"
+  },
+  {
+   "code": "600900",
+   "title": "长江电力2023年年度报告摘要",
+   "announcement_id": "1219922589"
+  },
+  {
+   "code": "601088",
+   "title": "中国神华2025年度报告摘要",
+   "announcement_id": "1225064317"
+  },
+  {
+   "code": "601088",
+   "title": "中国神华2024年度报告摘要",
+   "announcement_id": "1222870375"
+  },
+  {
+   "code": "601088",
+   "title": "中国神华2023年度报告摘要",
+   "announcement_id": "1219390011"
+  },
+  {
+   "code": "601899",
+   "title": "紫金矿业集团股份有限公司2025年年度报告摘要",
+   "announcement_id": "1225023677"
+  },
+  {
+   "code": "601899",
+   "title": "紫金矿业集团股份有限公司2024年年报报告",
+   "announcement_id": "1222870413",
+   "reason": "same file as an earlier announcement"
+  },
+  {
+   "code": "601899",
+   "title": "紫金矿业集团股份有限公司2024年年度报告摘要",
+   "announcement_id": "1222870409"
+  },
+  {
+   "code": "601899",
+   "title": "紫金矿业集团股份有限公司2023年年度报告",
+   "announcement_id": "1219390064",
+   "reason": "same file as an earlier announcement"
+  },
+  {
+   "code": "601899",
+   "title": "紫金矿业集团股份有限公司2023年年度报告摘要",
+   "announcement_id": "1219390060"
+  },
+  {
+   "code": "000002",
+   "title": "2025年年度报告摘要",
+   "announcement_id": "1225067793"
+  },
+  {
+   "code": "000002",
+   "title": "2024年年度报告摘要",
+   "announcement_id": "1222974110"
+  },
+  {
+   "code": "000002",
+   "title": "2023年年度报告摘要",
+   "announcement_id": "1219444700"
+  },
+  {
+   "code": "000002",
+   "title": "关于2025年度股东会增加临时提案及召开2025年度股东会通知的补充公告",
+   "announcement_id": "1225306067"
+  },
+  {
+   "code": "000002",
+   "title": "更正公告",
+   "announcement_id": "1221331382"
+  },
+  {
+   "code": "600309",
+   "title": "万华化学2025年年度报告摘要",
+   "announcement_id": "1225130699"
+  },
+  {
+   "code": "600309",
+   "title": "万华化学2024年年度报告摘要",
+   "announcement_id": "1223097319"
+  },
+  {
+   "code": "600309",
+   "title": "万华化学2023年年度报告摘要",
+   "announcement_id": "1219331060"
+  },
+  {
+   "code": "600309",
+   "title": "万华化学关于2024年度股东大会通知的更正补充公告",
+   "announcement_id": "1223494620"
+  },
+  {
+   "code": "600031",
+   "title": "三一重工股份有限公司2025年年度报告摘要",
+   "announcement_id": "1225061405"
+  },
+  {
+   "code": "600031",
+   "title": "三一重工股份有限公司2024年年度报告摘要",
+   "announcement_id": "1223129233"
+  },
+  {
+   "code": "600031",
+   "title": "三一重工股份有限公司2023年年度报告摘要",
+   "announcement_id": "1219890117"
+  },
+  {
+   "code": "002352",
+   "title": "2025年年度报告摘要",
+   "announcement_id": "1225057386"
+  },
+  {
+   "code": "002352",
+   "title": "2024年年度报告摘要",
+   "announcement_id": "1222943338"
+  },
+  {
+   "code": "002352",
+   "title": "2023年年度报告（英文版）",
+   "announcement_id": "1219410687"
+  },
+  {
+   "code": "002352",
+   "title": "2023年年度报告摘要",
+   "announcement_id": "1219410685"
+  }
+ ],
+ "config_sha256": "2ee32696552b006219933641fa67450afc2e80dfb7bb1bc5c055fec901744fc1"
+}
