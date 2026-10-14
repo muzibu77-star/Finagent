@@ -1,6 +1,6 @@
 import unittest
 
-from src.data.table_facts import DECLARED, context, grid, header_rows, stated_unit
+from src.data.table_facts import DECLARED, context, grid, header_rows, scope, stated_unit
 from src.data.table_map import table_cells
 
 
@@ -60,6 +60,18 @@ class TableFactsTest(unittest.TestCase):
         found = stated_unit('单位：股', 'line before table')
         self.assertEqual((found['unit'], found['scale'], found['currency']), ('股', None, None))
         self.assertEqual(stated_unit('被投资单位名称', 'line before table'), {})
+
+    def test_statement_title_set_as_plain_text(self):
+        found = context([text('paragraph_title', '中国移动有限公司'), text('text', '合并资产负债表'),
+                         text('text', '(除特别注明外，金额单位为人民币百万元)')])
+        self.assertEqual((found['title'], found['unit']), ('合并资产负债表', '百万元'))
+
+    def test_scope_from_column_in_combined_statements(self):
+        self.assertEqual(scope('合并及公司资产负债表', '2025年12月31日 合并'), '合并')
+        self.assertEqual(scope('合并及公司资产负债表', '2025年12月31日 公司'), '母公司')
+        self.assertEqual(scope('母公司利润表', '本期发生额'), '母公司')
+        self.assertEqual(scope('合并利润表', '本期发生额'), '合并')
+        self.assertIsNone(scope('应收账款', '期末余额'))
 
 
 if __name__ == '__main__':

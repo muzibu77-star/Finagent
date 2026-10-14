@@ -4,7 +4,7 @@ import unittest
 
 from src.evaluation.seed_claims import (MEETING, amount, clean_metric, derived, direct, growth,
                                         in_yi, repeated, role, wrong_digit, wrong_growth,
-                                        wrong_period, wrong_scope, wrong_unit)
+                                        wrong_period, wrong_scope, wrong_source, wrong_unit)
 
 PAIR = {'company': '某公司', 'fiscal_year': 2024, 'statement': '合并利润表', 'metric': '营业收入',
         'current_fact': 1, 'prior_fact': 2, 'current': Decimal('174144069958.25'),
@@ -73,6 +73,16 @@ class SeedClaimsTest(unittest.TestCase):
                                '听取当前房地产市场形势和下一步构建房地产发展新模式有关工作考虑的汇报。')
         self.assertEqual((match.group(1), match.group(2)), ('6', '7'))
         self.assertTrue(match.group(3).startswith('听取当前房地产'))
+
+    def test_source_note_naming_an_earlier_report(self):
+        pair = {**PAIR, 'code': '600000', 'current_digits': '174144069958.25'}
+        found = wrong_source(direct(pair), pair, {('600000', 2023): {'150560330316.45'}})
+        self.assertEqual([(c['label'], c['cited_report'][1]) for c in found],
+                         [('consistent', 2024), ('inconsistent', 2023)])
+        self.assertTrue(found[1]['text'].endswith('（数据来源：某公司2023年年度报告）。'))
+        self.assertEqual(found[1]['text'][found[1]['span'][0]:found[1]['span'][1]], '1741.44')
+        later = wrong_source(direct(pair), pair, {('600000', 2023): {'174144069958.25'}})
+        self.assertEqual(len(later), 1)
 
 
 if __name__ == '__main__':

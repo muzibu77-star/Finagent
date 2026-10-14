@@ -1,5 +1,6 @@
 {
   "company": "002341",
+  "name": "新纶科技",
   "period": "2018",
   "snapshot_id": "xinlun-restatement-v1",
   "original": {
@@ -19,8 +20,23 @@
   },
   "review": "Issuer original PDFs mirrored by Sina, retaining CNINFO watermark. Original announcement listing dated 2019-04-23; correction announcement 2020-035 is dated 2020-04-30 on page 5 and listing. Some later financial-note wording says April 29, inconsistent with the dated notice; this selected-snapshot replay uses the actual notice publication date, not earliest-information omniscience. Scope: three corrected 2018 consolidated balance-sheet rows, not a complete restated annual report. Agent visually checked correction page 4.",
   "rows": [
-    ["应收账款", "1,539,786,222.64", "-204,064,563.36", "1,335,721,659.28"],
-    ["预付账款", "176,036,038.27", "-5,000,000.00", "171,036,038.27"],
-    ["其他应收款", "134,080,162.83", "28,603,217.75", "162,683,380.58"]
+    [
+      "应收账款",
+      "1,539,786,222.64",
+      "-204,064,563.36",
+      "1,335,721,659.28"
+    ],
+    [
+      "预付账款",
+      "176,036,038.27",
+      "-5,000,000.00",
+      "171,036,038.27"
+    ],
+    [
+      "其他应收款",
+      "134,080,162.83",
+      "28,603,217.75",
+      "162,683,380.58"
+    ]
   ]
 }

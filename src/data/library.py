@@ -82,7 +82,57 @@ def add_report(db: sqlite3.Connection, source: dict, parsed: Path) -> dict:
     return {'pages': count, 'facts': len(result['facts']), 'problems': len(result['problems'])}
 
 
-def build(reports: Path, parsed: Path, policies: Path, output: Path) -> dict:
+RESTATED_TITLE = '合并资产负债表'
+
+
+def add_restatement(db: sqlite3.Connection, config: dict) -> int:
+    """A historical correction: the original report page and the correction notice.
+
+    Only the rows a reviewer transcribed are stored.  The original values are
+    located in the original page text; the correction notice is a scanned page,
+    so its values carry the transcription as their page text and an empty box.
+    """
+    code, year = config['company'], int(config['period'])
+    rows = config['rows']
+    sources = []
+    for kind, part in (('annual', config['original']), ('correction', config['correction'])):
+        path = Path(part['path'])
+        if hashlib.sha256(path.read_bytes()).hexdigest() != part['sha256']:
+            raise ValueError(f'source changed since download: {path}')
+        document_id = f"{code}-{config['snapshot_id']}-{kind}"
+        db.execute('INSERT INTO documents VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                   (document_id, kind, config.get('name', code), code, year,
+                    f'{year}年年度报告' if kind == 'annual' else f'{year}年年度报告更正公告',
+                    part['url'], part['published_at'], part['sha256'], 1))
+        sources.append((document_id, part))
+    (original_id, original), (correction_id, correction) = sources
+    with pdfium.PdfDocument(original['path']) as document:
+        textpage = document[original['page'] - 1].get_textpage()
+        page_text = textpage.get_text_bounded()
+        textpage.close()
+    add_page(db, original_id, original['page'], page_text)
+    transcript = '\n'.join(' '.join(row) for row in rows)
+    add_page(db, correction_id, correction['page'], transcript)
+    count = 0
+    for label, before, _, after in rows:
+        start = page_text.find(before)
+        if start < 0:
+            raise ValueError(f'original value {before} not on page {original["page"]}')
+        for document_id, page, text, offset, source in (
+                (original_id, original['page'], before, start, 'line before table'),
+                (correction_id, correction['page'], after, transcript.find(after),
+                 'transcribed from scanned page')):
+            db.execute('INSERT INTO facts (document_id, page, start, end, box, text, digits, '
+                       + ', '.join(FACT_FIELDS) + ') VALUES (' + ', '.join('?' * (7 + len(FACT_FIELDS))) + ')',
+                       (document_id, page, offset, offset + len(text), '[]', text, digits(text),
+                        label, None, '期末余额', RESTATED_TITLE, None, '元', '1', '人民币',
+                        source, '合并'))
+            count += 1
+    return count
+
+
+def build(reports: Path, parsed: Path, policies: Path, output: Path,
+          restatements: list[Path] = ()) -> dict:
     output.mkdir(parents=True, exist_ok=False)
     db = sqlite3.connect(output / 'library.sqlite')
     db.executescript(SCHEMA)
@@ -110,6 +160,9 @@ def build(reports: Path, parsed: Path, policies: Path, output: Path) -> dict:
         add_page(db, release['id'], 1, path.with_suffix('.txt').read_text())
         totals['releases'] += 1
         totals['pages'] += 1
+    for path in restatements:
+        totals['facts'] += add_restatement(db, json.loads(path.read_text()))
+        totals['restatements'] = totals.get('restatements', 0) + 1
     receipt = {**totals, 'reports_sha256': hashlib.sha256(reports.read_bytes()).hexdigest(),
                'policies_sha256': hashlib.sha256(policies.read_bytes()).hexdigest()}
     db.executemany('INSERT INTO meta VALUES (?, ?)', [(k, str(v)) for k, v in receipt.items()])
@@ -180,10 +233,13 @@ def main() -> None:
     parser.add_argument('--reports', type=Path, default=Path('configs/cninfo_sources.json'))
     parser.add_argument('--parsed', type=Path, default=Path('data/staged/cninfo_parsed_v1'))
     parser.add_argument('--policies', type=Path, default=Path('configs/policy_sources.json'))
+    parser.add_argument('--restatement', type=Path, action='append', default=[],
+                        help='a reviewed correction case, e.g. configs/jd_restatement.json')
     parser.add_argument('--output-dir', type=Path, required=True)
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s')
-    print(json.dumps(build(args.reports, args.parsed, args.policies, args.output_dir)))
+    print(json.dumps(build(args.reports, args.parsed, args.policies, args.output_dir,
+                           args.restatement)))
 
 
 if __name__ == '__main__':

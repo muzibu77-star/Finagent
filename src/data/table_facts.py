@@ -29,6 +29,9 @@ IDENTIFIER = re.compile(r'\d{15,}')
 DATE_COLUMN = re.compile(r'时间|日期|年月|到期日|起始日')
 CURRENCY = re.compile(r'人民币|港币|港元|美元')
 DATE = re.compile(r'\d{4}\s*年(?:\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?|\s*度|\s*\d{1,2}\s*[-—–~至]\s*\d{1,2}\s*月)')
+STATEMENT_TITLE = re.compile(r'(?:[一二三四五六七八九十\d]+[、.．])?(?:合并(?:及(?:母)?公司)?|母公司|公司)?'
+                             r'(?:资产负债表|利润表|现金流量表|所有者权益变动表|股东权益变动表)'
+                             r'(?:[（(]续[)）])?')
 NOTE_COLUMNS = ('附注', '注释', '附注号', '附注编号')
 NO_META = {'title': None, 'unit': None, 'scale': None, 'currency': None,
            'statement_date': None, 'unit_source': None}
@@ -62,6 +65,9 @@ def context(blocks: list[dict]) -> dict:
         text = block_text(block)
         if block['type'] == 'paragraph_title':
             found = {**NO_META, 'title': text}
+        elif block['type'] == 'text' and STATEMENT_TITLE.fullmatch(re.sub(r'\s', '', text)):
+            # "合并资产负债表" set as ordinary text rather than as a heading.
+            found = {**NO_META, 'title': text}
         elif block['type'] == 'text' and len(text) <= 80:
             found.update(stated_unit(text, 'line before table'))
             if DATE.fullmatch(text):
@@ -84,6 +90,17 @@ def declared_units(document) -> list[tuple[int, dict]]:
                 'currency': currency.group() if currency else None,
                 'unit_source': f'statement on page {index + 1}'}))
     return found
+
+
+def scope(title: str, column: str) -> str | None:
+    """Consolidated or parent figures; a "合并及公司" table says so per column."""
+    if re.search(r'合并', column):
+        return '合并'
+    if re.search(r'(?<!合并)(?:母公司|本公司|公司)$|(?:母公司|本公司)', column):
+        return '母公司'
+    if '母公司' in title:
+        return '母公司'
+    return '合并' if '合并' in title else None
 
 
 def grid(cells: list[Cell]) -> dict[tuple[int, int], str]:
@@ -180,7 +197,7 @@ def extract(document, middle: dict) -> dict:
                     'pdf_page': pdf_page, 'start': value['start'], 'end': value['end'],
                     'box': value['box'], 'text': value['text'], 'row_label': label,
                     'section': section, 'column_header': columns[column] or None,
-                    'scope': '母公司' if '母公司' in title else '合并' if '合并' in title else None,
+                    'scope': scope(title, columns[column]),
                     **meta}
                 # Only the value or its column says it is a percentage; a row
                 # label such as "以适用税率25%计算的所得税费用" names an amount.

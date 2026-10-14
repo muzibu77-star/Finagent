@@ -17,8 +17,8 @@ HELD_OUT = ('development', 'acceptance')
 
 
 def split_of(record: dict, by_code: dict[str, str]) -> str:
-    """The issuer's split; material without an issuer is spread by a stable hash."""
-    if record.get('code'):
+    """The issuer's split; material outside the 30 issuers is spread by a stable hash."""
+    if record.get('code') in by_code:
         return by_code[record['code']]
     bucket = int(hashlib.sha256(record['document_id'].encode()).hexdigest(), 16) % 30
     return 'acceptance' if bucket < 8 else 'development' if bucket < 14 else 'training'
@@ -64,7 +64,7 @@ def main() -> None:
             if 'review' not in record:
                 continue
             code = record['document_id'].split('-')[0]
-            reviews[by_code[code]].append({
+            reviews[split_of({'code': code, 'document_id': record['document_id']}, by_code)].append({
                 'id': f"review-{directory.name}-{record['document_id']}", 'code': code,
                 'company': record['company'], 'fiscal_year': record['year'],
                 'document_id': record['document_id'], 'model': summary['model'],
