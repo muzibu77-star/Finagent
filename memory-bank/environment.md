@@ -48,7 +48,38 @@ MINERU_HOME=/test/Finagent/mineru_home MINERU_MODEL_SOURCE=modelscope \
   .venv-mineru/bin/mineru-kit parse <文件.pdf> -o <输出目录> -p <页码范围> -f middle_json --tier standard
 ```
 
-  输出 `<输出目录>/<文件名>.json`（`docvortex.middle` 格式），交给 `src.data.table_map.map_parsed_tables` 做原文映射。模型约 2 GB，在 `/test/Finagent/mineru_home/models`。
+  输出 `<输出目录>/<文件名>.json`（`docvortex.middle` 格式），交给 `python -m src.data.table_facts --pdf --middle --output` 做原文映射与事实绑定。模型在 `/test/Finagent/mineru_home/models`。
+- **文档模型必须走 GPU 服务**：MinerU 自带的 llama.cpp 在本容器内只能用 CPU（每个区块 30—100 秒）。先启动服务（约 3 分钟就绪，占显存约 10 GB），再给解析命令加三个环境变量：
+
+```bash
+V=$PWD/.venv-serving
+PATH=$V/bin:$PATH LD_LIBRARY_PATH=$V/lib/python3.12/site-packages/nvidia/cu13/lib \
+  nohup setsid $V/bin/vllm serve /test/Finagent/mineru_home/models/MinerU2.5-Pro-2605-1.2B \
+  --served-model-name mineru-vlm --host 127.0.0.1 --port 30000 --gpu-memory-utilization 0.35 \
+  > /test/Finagent/tmp/vlm_server.log 2>&1 &
+# 解析时：
+MINERU_MODEL_VLM_SERVER_URL=http://127.0.0.1:30000 MINERU_MODEL_VLM_MODEL=mineru-vlm NO_PROXY=127.0.0.1,localhost
+```
+
+  权重用 `mineru-kit models download MinerU2.5-Pro-2605-1.2B` 下载。实测 0.5—0.7 页／秒。停止服务：`pkill -f "vllm serve"`。
+
+## 全量解析任务（2026-10-13 17:41 启动，2026-10-14 01:17 完成）
+
+先按上节启动 GPU 上的文档模型服务，再执行：
+
+```bash
+MINERU_HOME=/test/Finagent/mineru_home MINERU_MODEL_SOURCE=modelscope TMPDIR=/test/Finagent/tmp \
+MINERU_MODEL_VLM_SERVER_URL=http://127.0.0.1:30000 MINERU_MODEL_VLM_MODEL=mineru-vlm \
+NO_PROXY=127.0.0.1,localhost no_proxy=127.0.0.1,localhost \
+nohup setsid .venv/bin/python -m src.data.parse_reports --output-dir data/staged/cninfo_parsed_v1 \
+  > /test/Finagent/tmp/parse_reports.log 2>&1 &
+```
+
+- 输出：`data/staged/cninfo_parsed_v1/<来源 id>.json`，每份文件一个；失败记录在同目录 `failures.jsonl`。
+- 进度：`tail -f /test/Finagent/tmp/parse_reports.log`，每完成一份输出已完成文件数、页数、已用时间、速度与预计剩余时间。
+- 续跑：中断后原样重跑同一条命令，已完整解析的文件自动跳过；半成品为 `*.partial.json`，重跑时覆盖。
+- 验收：日志末行 `finished: 92/92 documents parsed`，且 `failures.jsonl` 不存在或为空。
+- 停止：`pkill -f "python -m [s]rc\.data\.parse_report"`，再停文档模型服务。
 
 ## 不在 Git 中的资产
 
@@ -58,8 +89,12 @@ MINERU_HOME=/test/Finagent/mineru_home MINERU_MODEL_SOURCE=modelscope \
 | `/test/Finagent/models/Qwen3.5-9B` | 现有基座模型，路径与 revision 见 `configs/m0_inference.yaml`；阶段 4 可能更换 |
 | `data/raw/chinese_expanded/` | 招商银行 2023、中国电信 2023、康美药业 2017 及更正公告、新纶科技 2018／2019 及更正公告的原件 |
 | `data/raw/reports/`、`data/staged/reports_v2/` | 中国移动财报原件与分页资料库 |
+| `data/raw/cninfo/` | 30 家发行人 2023—2025 财年年度报告与更正公告（92 个文件、741 MB），清单与哈希见 `configs/cninfo_sources.json`，用 `python -m src.data.cninfo_reports --pause 2.5` 重新获取 |
 | `data/staged/jd_chinese_v4/`、`data/staged/m5_chinese_v1/` | 从中文原页构造的算术题（原值、单位、页码、哈希） |
+| `data/raw/policy/` | 政策文件与统计发布 1,855 篇的原始网页和正文（206 MB），清单见 `configs/policy_sources.json`，用 `python -m src.data.policy_sources` 重新获取 |
 | `/test/Finagent/mineru_home/` | MinerU 模型与配置 |
+| `data/staged/cninfo_parsed_v1/` | 年报的 MinerU 解析结果（全量解析任务的输出） |
+| `data/staged/library_v2/` | 出处库 `library.sqlite`（约 438 MB）与收据；由 `python -m src.data.library --output-dir <新目录>` 从上面各项重建，约 6 分钟，不需要 GPU |
 
 原始 PDF 仅作本地研究与必要引用，不随仓库再分发。移机时须一并恢复上表资产，仅 clone 仓库不能运行。
 
