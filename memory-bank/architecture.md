@@ -30,7 +30,7 @@
 - `src/data/parse_reports.py`：按下载收据逐份调用 MinerU 解析，校验来源哈希，结果一份一个文件、原子落盘，可断点续跑，失败单独记录；要求已配置 GPU 上的文档模型服务，否则拒绝启动。
 - `src/data/table_map.py`：把版面解析器（MinerU）给出的 HTML 表格中的数值单元格，按位置与数字逐一对回 PDFium 页面文本的字符区间和位置框。PDF 文本层为准：数字不一致的单元格与解析器漏掉的数字分别报告，不做修正。
 - `src/data/table_facts.py`：在映射之上，把每个数字与行标签、列表头、小节、表题、报表日期、单位、币种和合并／母公司口径绑定为候选事实；续表继承上一段的表头与单位。缺单位、续表缺开头、并格与漏识别记入问题清单，缺失字段留空而不猜测。命令行入口 `python -m src.data.table_facts --pdf --middle --output`。
-- `src/data/library.py`：出处库。`build` 把年报的逐页文本（与 PDFium 返回的完全一致，事实的字符区间以它为准）、表格事实、绑定问题以及政策与统计发布写入一个 SQLite 文件，并核对来源哈希；`Library` 提供只读查询：`find_number`（按书写的数字精确查找事实）、`search_pages`（中文二元词 BM25）与 `page_text`，均可限定发行人和截止日（披露日为日粒度、包含当日）。
+- `src/data/library.py`：出处库。`build` 把年报的逐页文本（与 PDFium 返回的完全一致，事实的字符区间以它为准）、表格事实、绑定问题以及政策与统计发布写入一个 SQLite 文件，并核对来源哈希；`--restatement` 可加入人工转写复核过的历史更正案例（原报告页与更正值，后者无位置框）；`Library` 提供只读查询：`find_number`（按书写的数字精确查找事实）、`search_pages`（中文二元词 BM25）与 `page_text`，均可限定发行人和截止日（披露日为日粒度、包含当日）。
 - `src/data/corpus.py`、`src/data/report_corpus.py`、`src/data/rag_corpus.py`：按公司、报告期、快照限定可读资料；披露日为日粒度并包含当日，缺少核实披露日的资料不进入严格截止查询；后续更正按日替换旧版本。
 - `src/retrieval/bm25.py`、`src/retrieval/report_index.py`：SQLite FTS5 的 BM25、中文双字词／英文词检索与词面重排；截止范围内单独统计词频，未来文本不影响过去的排名。
 - `src/retrieval/neural.py`：原字符跨度分块、BGE-M3 向量、本地 Qdrant、与 BM25 的 RRF 融合及交叉编码重排；权限过滤先于向量查询，索引身份绑定资料、配置与实现哈希。
@@ -51,6 +51,13 @@
 - **待重写**：`prepare_sft.py`、`autonomous_sft.py`、`complex_autonomous.py`、`teacher.py`、`preference_data.py` 及其依赖的 `src/data/build_manifest.py`、`src/data/tatqa_source_audit.py`、`src/evaluation/validate_agent_run.py`。它们按英文财报问答数据的格式准备样本，训练入口的数据装载仍引用它们；阶段 4 按核查任务的数据重写后清理。
 
 ### 评测工具
+
+- `src/model/api_client.py`：计量的 API 客户端。应答按请求哈希缓存到文件（重跑不重复计费），按高峰价累计花费，预算用尽后拒绝新请求；密钥只从被忽略的 `.env` 读取。
+- `src/evaluation/draft_pilot.py`：试点入口。让模型按年报合并报表原文（或不给原文）写点评，再由代码检查文中每个金额与百分比能否在该年报的事实中找到依据。
+- `src/evaluation/splits.py`：按行业交错把 30 家发行人划为训练、开发、验收三部分并写入 `configs/issuer_splits.json`；文件已存在时拒绝覆盖。
+- `src/evaluation/freeze_set.py`：按发行人划分冻结评测集：训练保留全部种子，开发与验收每类错误取固定条数；模型稿件整篇保留并附代码判定的弱标签；写出带哈希的 `lock.json`，目录已存在时拒绝写入。
+- `src/evaluation/review_labels.py`：逐数字人工核实的离线辅助模块，不自动选择指标或推断金标。按点评精度以 Decimal 比较、记录推导算式和每个操作数的事实编号或原页字符区间，验证覆盖、出处和算式一致性；支持明确的上下限断言与冻结抽取遗漏中文千分位的完整原句证据。核实结果在 `data/staged/eval_v2_labels/`，与冻结输入和出处库分开；`summary.json` 明示尚未完成的部分，只有完整首遍和固定种子 10% 独立盲审达标后才视为完成。用户另行批准的无文本层 PDF 页例外使用 `evidence/` 下截图及页码、像素坐标，不伪造字符区间。
+- `src/evaluation/seed_claims.py`：评测集的种子。从出处库中合并三大报表、同一行同时有本年与上年数的事实，按模板生成正确断言（金额换算为亿元的直接引用、同比增速），再各做一次有记录的改动得到错误断言（E1 改数字、E2 改单位、E3 上年数当本年、E4 母公司数当合并数、E5 增速分母用错、E9 同一指标前后两个数不同），E8 注明不含该数字的旧年报为出处；另从国常会新闻稿生成日期断言及 E7 日期错误，从复核过的更正案例生成 E6（更正后仍引用旧值）。报表未绑定的发行人改用“主要会计数据”表；每条带数值在句中的位置、所依据的事实编号和应有的值。句子是模板，只检验核查逻辑，不代表真实稿件的写法。
 
 - `src/evaluation/statistics.py`、`src/evaluation/compare_agent_runs.py`：按发行人聚类的配对 bootstrap 区间。
 - `src/evaluation/serving_benchmark.py`：TTFT、端到端时延与吞吐测量。

@@ -1,0 +1,406 @@
+{
+  "is_gold_standard": true,
+  "seed": 20261014,
+  "sampling": "按(review_id,start)排序后以固定种子抽取ceil(10%)；各部分首遍完成后由隔离上下文的独立代理盲审。",
+  "splits": {
+    "training": {
+      "input_numbers": 6830,
+      "labeled": 6830,
+      "remaining": 0,
+      "groups": [
+        {
+          "model": "deepseek-flash",
+          "condition": "closed",
+          "input_numbers": 1535,
+          "labeled": 1535,
+          "labels": {
+            "correct": 211,
+            "not_a_claim": 0,
+            "unverifiable": 28,
+            "wrong": 1296
+          },
+          "error_types": {
+            "calculation": 482,
+            "metric": 2,
+            "period": 0,
+            "rounding": 20,
+            "scope": 0,
+            "unit": 0,
+            "value": 792
+          },
+          "supported_true_wrong": 465,
+          "supported_false_correct": 12,
+          "remaining": 0
+        },
+        {
+          "model": "deepseek-flash",
+          "condition": "open",
+          "input_numbers": 2092,
+          "labeled": 2092,
+          "labels": {
+            "correct": 1955,
+            "not_a_claim": 0,
+            "unverifiable": 0,
+            "wrong": 137
+          },
+          "error_types": {
+            "calculation": 10,
+            "metric": 6,
+            "period": 0,
+            "rounding": 32,
+            "scope": 45,
+            "unit": 29,
+            "value": 15
+          },
+          "supported_true_wrong": 83,
+          "supported_false_correct": 39,
+          "remaining": 0
+        },
+        {
+          "model": "deepseek-v4-pro",
+          "condition": "closed",
+          "input_numbers": 1427,
+          "labeled": 1427,
+          "labels": {
+            "correct": 266,
+            "not_a_claim": 0,
+            "unverifiable": 73,
+            "wrong": 1088
+          },
+          "error_types": {
+            "calculation": 420,
+            "metric": 4,
+            "period": 1,
+            "rounding": 27,
+            "scope": 0,
+            "unit": 0,
+            "value": 636
+          },
+          "supported_true_wrong": 390,
+          "supported_false_correct": 19,
+          "remaining": 0
+        },
+        {
+          "model": "deepseek-v4-pro",
+          "condition": "open",
+          "input_numbers": 1776,
+          "labeled": 1776,
+          "labels": {
+            "correct": 1591,
+            "not_a_claim": 0,
+            "unverifiable": 2,
+            "wrong": 183
+          },
+          "error_types": {
+            "calculation": 35,
+            "metric": 0,
+            "period": 0,
+            "rounding": 27,
+            "scope": 44,
+            "unit": 2,
+            "value": 75
+          },
+          "supported_true_wrong": 100,
+          "supported_false_correct": 55,
+          "remaining": 0
+        }
+      ],
+      "labels": {
+        "correct": 4023,
+        "wrong": 2704,
+        "unverifiable": 103,
+        "not_a_claim": 0
+      },
+      "error_types": {
+        "value": 1518,
+        "calculation": 947,
+        "rounding": 106,
+        "metric": 12,
+        "scope": 89,
+        "unit": 31,
+        "period": 1
+      },
+      "second_pass": {
+        "seed": 20261014,
+        "sample_size": 683,
+        "matches": 673,
+        "label_agreement": 0.9853587115666179,
+        "passes_95_percent": true,
+        "supported_true_wrong": 99,
+        "supported_false_correct": 15,
+        "comparison_basis": "盲审前首遍快照，未用修正后的标签提高一致率；逐项原始首遍判断保存在second_pass.first_pass。",
+        "same_label_expected_disagreements": 1
+      },
+      "status": "complete",
+      "supported_true_wrong": 1038,
+      "supported_false_correct": 125,
+      "first_pass_sha256_before_blind_review": "59defb3ac20e8bf93aab7064dceadf5576bfb5f6666da65e534dccf738a077bf"
+    },
+    "development": {
+      "input_numbers": 2223,
+      "labeled": 2223,
+      "remaining": 0,
+      "groups": [
+        {
+          "model": "deepseek-flash",
+          "condition": "closed",
+          "input_numbers": 582,
+          "labeled": 582,
+          "labels": {
+            "correct": 72,
+            "not_a_claim": 0,
+            "unverifiable": 34,
+            "wrong": 476
+          },
+          "error_types": {
+            "calculation": 230,
+            "metric": 2,
+            "period": 0,
+            "rounding": 1,
+            "scope": 0,
+            "unit": 0,
+            "value": 243
+          },
+          "supported_true_wrong": 176,
+          "supported_false_correct": 2,
+          "remaining": 0
+        },
+        {
+          "model": "deepseek-flash",
+          "condition": "open",
+          "input_numbers": 626,
+          "labeled": 626,
+          "labels": {
+            "correct": 607,
+            "not_a_claim": 0,
+            "unverifiable": 0,
+            "wrong": 19
+          },
+          "error_types": {
+            "calculation": 2,
+            "metric": 0,
+            "period": 0,
+            "rounding": 15,
+            "scope": 0,
+            "unit": 0,
+            "value": 2
+          },
+          "supported_true_wrong": 8,
+          "supported_false_correct": 20,
+          "remaining": 0
+        },
+        {
+          "model": "deepseek-v4-pro",
+          "condition": "closed",
+          "input_numbers": 516,
+          "labeled": 516,
+          "labels": {
+            "correct": 85,
+            "not_a_claim": 0,
+            "unverifiable": 24,
+            "wrong": 407
+          },
+          "error_types": {
+            "calculation": 194,
+            "metric": 0,
+            "period": 1,
+            "rounding": 6,
+            "scope": 0,
+            "unit": 0,
+            "value": 206
+          },
+          "supported_true_wrong": 149,
+          "supported_false_correct": 4,
+          "remaining": 0
+        },
+        {
+          "model": "deepseek-v4-pro",
+          "condition": "open",
+          "input_numbers": 499,
+          "labeled": 499,
+          "labels": {
+            "correct": 442,
+            "not_a_claim": 0,
+            "unverifiable": 0,
+            "wrong": 57
+          },
+          "error_types": {
+            "calculation": 21,
+            "metric": 0,
+            "period": 0,
+            "rounding": 9,
+            "scope": 2,
+            "unit": 2,
+            "value": 23
+          },
+          "supported_true_wrong": 18,
+          "supported_false_correct": 15,
+          "remaining": 0
+        }
+      ],
+      "labels": {
+        "correct": 1206,
+        "wrong": 959,
+        "unverifiable": 58,
+        "not_a_claim": 0
+      },
+      "error_types": {
+        "value": 474,
+        "calculation": 447,
+        "metric": 2,
+        "rounding": 31,
+        "period": 1,
+        "scope": 2,
+        "unit": 2
+      },
+      "second_pass": {
+        "seed": 20261014,
+        "sample_size": 223,
+        "matches": 216,
+        "label_agreement": 0.968609865470852,
+        "passes_95_percent": true,
+        "supported_true_wrong": 37,
+        "supported_false_correct": 7,
+        "comparison_basis": "盲审前首遍快照；原始首遍判断保存在second_pass.first_pass。",
+        "same_label_expected_disagreements": 1
+      },
+      "status": "complete",
+      "supported_true_wrong": 351,
+      "supported_false_correct": 41,
+      "first_pass_sha256_before_blind_review": "6793453d4172c20ed73f0bf60033d67162dd2083240da7393d81f45992a87061"
+    },
+    "acceptance": {
+      "input_numbers": 3256,
+      "labeled": 3256,
+      "remaining": 0,
+      "groups": [
+        {
+          "model": "deepseek-flash",
+          "condition": "closed",
+          "input_numbers": 765,
+          "labeled": 765,
+          "labels": {
+            "correct": 84,
+            "not_a_claim": 0,
+            "unverifiable": 38,
+            "wrong": 643
+          },
+          "error_types": {
+            "calculation": 328,
+            "metric": 2,
+            "period": 0,
+            "rounding": 7,
+            "scope": 0,
+            "unit": 0,
+            "value": 306
+          },
+          "supported_true_wrong": 225,
+          "supported_false_correct": 6,
+          "remaining": 0
+        },
+        {
+          "model": "deepseek-flash",
+          "condition": "open",
+          "input_numbers": 964,
+          "labeled": 964,
+          "labels": {
+            "correct": 867,
+            "not_a_claim": 0,
+            "unverifiable": 1,
+            "wrong": 96
+          },
+          "error_types": {
+            "calculation": 34,
+            "metric": 0,
+            "period": 1,
+            "rounding": 16,
+            "scope": 8,
+            "unit": 1,
+            "value": 36
+          },
+          "supported_true_wrong": 42,
+          "supported_false_correct": 87,
+          "remaining": 0
+        },
+        {
+          "model": "deepseek-v4-pro",
+          "condition": "closed",
+          "input_numbers": 716,
+          "labeled": 716,
+          "labels": {
+            "correct": 128,
+            "not_a_claim": 0,
+            "unverifiable": 36,
+            "wrong": 552
+          },
+          "error_types": {
+            "calculation": 292,
+            "metric": 6,
+            "period": 0,
+            "rounding": 7,
+            "scope": 0,
+            "unit": 0,
+            "value": 247
+          },
+          "supported_true_wrong": 192,
+          "supported_false_correct": 19,
+          "remaining": 0
+        },
+        {
+          "model": "deepseek-v4-pro",
+          "condition": "open",
+          "input_numbers": 811,
+          "labeled": 811,
+          "labels": {
+            "correct": 684,
+            "not_a_claim": 0,
+            "unverifiable": 3,
+            "wrong": 124
+          },
+          "error_types": {
+            "calculation": 54,
+            "metric": 1,
+            "period": 0,
+            "rounding": 8,
+            "scope": 6,
+            "unit": 3,
+            "value": 52
+          },
+          "supported_true_wrong": 50,
+          "supported_false_correct": 87,
+          "remaining": 0
+        }
+      ],
+      "labels": {
+        "correct": 1763,
+        "wrong": 1415,
+        "unverifiable": 78,
+        "not_a_claim": 0
+      },
+      "error_types": {
+        "value": 641,
+        "calculation": 708,
+        "metric": 9,
+        "rounding": 38,
+        "scope": 14,
+        "unit": 4,
+        "period": 1
+      },
+      "second_pass": {
+        "seed": 20261014,
+        "sample_size": 326,
+        "matches": 323,
+        "label_agreement": 0.99079754601227,
+        "passes_95_percent": true,
+        "supported_true_wrong": 57,
+        "supported_false_correct": 17,
+        "comparison_basis": "盲审前首遍快照；原始首遍判断保存在second_pass.first_pass。",
+        "same_label_expected_disagreements": 2
+      },
+      "status": "complete",
+      "supported_true_wrong": 509,
+      "supported_false_correct": 199,
+      "first_pass_sha256_before_blind_review": "159e338184b5e0b737b1ee66c585060c1ed42f75bf2db43dddbe290f334a906a"
+    }
+  }
+}

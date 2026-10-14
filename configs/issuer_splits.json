@@ -1,0 +1,160 @@
+{
+ "seed": 20261014,
+ "issuers_sha256": "2ee32696552b006219933641fa67450afc2e80dfb7bb1bc5c055fec901744fc1",
+ "acceptance": [
+  {
+   "code": "000651",
+   "name": "格力电器",
+   "industry": "家电"
+  },
+  {
+   "code": "002475",
+   "name": "立讯精密",
+   "industry": "电子与半导体"
+  },
+  {
+   "code": "002594",
+   "name": "比亚迪",
+   "industry": "新能源与汽车"
+  },
+  {
+   "code": "300760",
+   "name": "迈瑞医疗",
+   "industry": "医药"
+  },
+  {
+   "code": "600031",
+   "name": "三一重工",
+   "industry": "制造与物流"
+  },
+  {
+   "code": "600309",
+   "name": "万华化学",
+   "industry": "地产与化工"
+  },
+  {
+   "code": "601166",
+   "name": "兴业银行",
+   "industry": "银行"
+  },
+  {
+   "code": "601318",
+   "name": "中国平安",
+   "industry": "保险"
+  }
+ ],
+ "development": [
+  {
+   "code": "000858",
+   "name": "五粮液",
+   "industry": "食品饮料"
+  },
+  {
+   "code": "002352",
+   "name": "顺丰控股",
+   "industry": "制造与物流"
+  },
+  {
+   "code": "600030",
+   "name": "中信证券",
+   "industry": "券商"
+  },
+  {
+   "code": "600276",
+   "name": "恒瑞医药",
+   "industry": "医药"
+  },
+  {
+   "code": "601088",
+   "name": "中国神华",
+   "industry": "能源与资源"
+  },
+  {
+   "code": "601728",
+   "name": "中国电信",
+   "industry": "通信"
+  }
+ ],
+ "training": [
+  {
+   "code": "000002",
+   "name": "万科A",
+   "industry": "地产与化工"
+  },
+  {
+   "code": "000333",
+   "name": "美的集团",
+   "industry": "家电"
+  },
+  {
+   "code": "000725",
+   "name": "京东方A",
+   "industry": "电子与半导体"
+  },
+  {
+   "code": "002415",
+   "name": "海康威视",
+   "industry": "电子与半导体"
+  },
+  {
+   "code": "300059",
+   "name": "东方财富",
+   "industry": "券商"
+  },
+  {
+   "code": "300750",
+   "name": "宁德时代",
+   "industry": "新能源与汽车"
+  },
+  {
+   "code": "600036",
+   "name": "招商银行",
+   "industry": "银行"
+  },
+  {
+   "code": "600519",
+   "name": "贵州茅台",
+   "industry": "食品饮料"
+  },
+  {
+   "code": "600887",
+   "name": "伊利股份",
+   "industry": "食品饮料"
+  },
+  {
+   "code": "600900",
+   "name": "长江电力",
+   "industry": "能源与资源"
+  },
+  {
+   "code": "600941",
+   "name": "中国移动",
+   "industry": "通信"
+  },
+  {
+   "code": "601012",
+   "name": "隆基绿能",
+   "industry": "新能源与汽车"
+  },
+  {
+   "code": "601398",
+   "name": "工商银行",
+   "industry": "银行"
+  },
+  {
+   "code": "601899",
+   "name": "紫金矿业",
+   "industry": "能源与资源"
+  },
+  {
+   "code": "603259",
+   "name": "药明康德",
+   "industry": "医药"
+  },
+  {
+   "code": "688981",
+   "name": "中芯国际",
+   "industry": "电子与半导体"
+  }
+ ]
+}
