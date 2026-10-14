@@ -18,6 +18,7 @@ SCALES = {'元': Decimal(1), '万元': Decimal(10) ** 4, '百万元': Decimal(10
           '亿元': Decimal(10) ** 8, '万亿元': Decimal(10) ** 12}
 CURRENT = re.compile(r'本期|本年|期末|年末|本报告期')
 PRIOR = re.compile(r'上期|上年|期初|年初')
+RESTATED_AWAY = re.compile(r'重述前|调整前')
 STATEMENT = re.compile(r'合并(?:及(?:母)?公司)?(?:利润表|资产负债表|现金流量表)|主要会计数据')
 PARENT = re.compile(r'(?:母公司|合并及(?:母)?公司)(?:利润表|资产负债表|现金流量表)')
 
@@ -30,9 +31,11 @@ class Claim:
     stated: str
     unit: str
     as_of: str
-    kind: str = 'direct'            # direct | growth | date
+    kind: str = 'direct'            # direct | growth | change | ratio | date
     cited_year: int | None = None    # a "数据来源：……Y年年度报告" note
     agenda: str = ''                 # for a dated policy statement
+    numerator: list = field(default_factory=list)    # ratio: line items, "-" to subtract
+    denominator: list = field(default_factory=list)
 
 
 @dataclass
@@ -69,6 +72,8 @@ def close(stated: str, value: Decimal, slack: Decimal = Decimal('0.5')) -> bool:
 
 def role(header: str | None, fiscal_year: int) -> str | None:
     header = header or ''
+    if RESTATED_AWAY.search(header):
+        return None  # the comparative as first reported, superseded by the restated one
     if PRIOR.search(header):
         return 'prior'
     if CURRENT.search(header):
@@ -126,6 +131,10 @@ class Checker:
     def check(self, claim: Claim) -> Verdict:
         if claim.kind == 'date':
             return self.check_date(claim)
+        if claim.kind == 'ratio':
+            return self.check_ratio(claim)
+        if claim.kind == 'change':
+            return self.check_change(claim)
         if claim.unit == '%':
             return self.check_growth(claim)
         if claim.unit not in SCALES:
@@ -221,6 +230,57 @@ class Checker:
         mistaken = (now - before) / abs(now) * 100 if now else None
         error = 'calculation' if mistaken is not None and close(claim.stated, mistaken) else 'value'
         return Verdict('inconsistent', error, shown, evidence)
+
+    def amount_of(self, claim: Claim, label: str) -> tuple | None:
+        """One unambiguous current-year figure for a line item, else ``None``."""
+        found = self.figures(Claim(claim.code, label, claim.fiscal_year, '0', '元', claim.as_of),
+                             claim.fiscal_year)
+        values = {value for value, _, _ in found}
+        return found[-1] if len(values) == 1 else None
+
+    def sum_of(self, claim: Claim, terms: list[str]) -> tuple[Decimal, list] | None:
+        total, evidence = Decimal(0), []
+        for term in terms:
+            sign = -1 if term.startswith('-') else 1
+            found = self.amount_of(claim, term.lstrip('-+'))
+            if found is None:
+                return None
+            total += sign * found[0]
+            evidence.append(found[1]['id'])
+        return total, evidence
+
+    def check_ratio(self, claim: Claim) -> Verdict:
+        """A share or margin: numerator over denominator, as a percentage."""
+        if claim.unit != '%' or not claim.numerator or not claim.denominator:
+            return Verdict('unsupported', reason='ratio needs both parts')
+        top, bottom = self.sum_of(claim, claim.numerator), self.sum_of(claim, claim.denominator)
+        if top is None or bottom is None or bottom[0] == 0:
+            return Verdict('unsupported', reason='a ratio part has no unambiguous figure')
+        value = top[0] / bottom[0] * 100
+        shown, evidence = str(round(value, places(claim.stated))), top[1] + bottom[1]
+        if close(claim.stated, value):
+            return Verdict('consistent', None, shown, evidence)
+        if close(claim.stated, value, Decimal(1)):
+            return Verdict('consistent', None, shown, evidence, 'rounding difference')
+        return Verdict('inconsistent', 'calculation', shown, evidence)
+
+    def check_change(self, claim: Claim) -> Verdict:
+        """An increase or decrease in amount: this year minus the comparative year."""
+        if claim.unit not in SCALES:
+            return Verdict('unsupported', reason=f'unit {claim.unit} is not an amount')
+        current, prior = self.comparative(claim)
+        if not current or not prior:
+            return Verdict('unsupported', reason='both years are needed for a change')
+        if len({v for v, _, _ in current}) > 1 or len({v for v, _, _ in prior}) > 1:
+            return Verdict('ambiguous', reason='disclosed figures for the metric disagree')
+        change = (current[-1][0] - prior[-1][0]) / SCALES[claim.unit]
+        shown = str(round(abs(change), places(claim.stated)))
+        evidence = [current[-1][1]['id'], prior[-1][1]['id']]
+        if close(claim.stated, change):
+            return Verdict('consistent', None, shown, evidence)
+        if close(claim.stated, change, Decimal(1)):
+            return Verdict('consistent', None, shown, evidence, 'rounding difference')
+        return Verdict('inconsistent', 'calculation', shown, evidence)
 
     def check_date(self, claim: Claim) -> Verdict:
         """A dated executive meeting: find the release by its agenda, compare the date."""

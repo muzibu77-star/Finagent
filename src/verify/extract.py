@@ -20,8 +20,15 @@ PROMPT = '''下面是一篇关于{company}{year}年年度报告的点评。请�
 - "number"：原文中的数字，原样照抄，不含单位，例如 "1,741.44"；
 - "unit"：亿元、万元、百万元或%；
 - "occurrence"：同样写法的数字在文中第几次出现，从 1 开始；
-- "type"："amount"（金额）、"growth"（同比、较上年、较年初的增减幅度）或 "other"（比率、占比、差额、百分点等）；
-- "label"：这个数字对应下列报表科目中的哪一个，原样照抄科目名；找不到对应科目时填 null；
+- "phrase"：原文中说明这个数字是什么的指标词，原样照抄，例如 "归属于母公司股东权益"；
+- "type"：
+  "amount"（某科目的金额）；
+  "growth"（某科目的同比、较上年、较年初的增减幅度，单位为%）；
+  "change"（某科目较上年、较年初增加或减少的金额）；
+  "ratio"（两个金额之比，如毛利率、费用率、资产负债率、占比，单位为%）；
+  "other"（百分点变化、无法对应到报表科目的数字等）；
+- "label"：amount、growth、change 时，这个数字对应下列报表科目中的哪一个，原样照抄科目名；找不到时填 null；
+- "numerator"、"denominator"：ratio 时，分子和分母各由哪些科目相加得到，写成科目名列表，相减的科目前加 "-"，例如毛利率的分子为 ["营业收入", "-营业成本"]、分母为 ["营业收入"]；找不到对应科目时填 null；
 - "year"：数字所属的财年（整数）；说的是上年或年初数时填上一年；
 - "scope"："合并"，句中明确说是母公司时填 "母公司"。
 
@@ -66,3 +73,38 @@ def locate(review: str, number: str, occurrence: int) -> int | None:
     if not isinstance(occurrence, int) or not 1 <= occurrence <= len(starts):
         return starts[0] if len(starts) == 1 else None
     return starts[occurrence - 1]
+
+
+# Nouns that decide what a line item is; a phrase naming one the line item lacks
+# was matched to the wrong line item (equity against profit, say).
+KEY_NOUNS = ('权益', '利润', '损益', '收入', '成本', '费用', '资产', '负债', '现金', '收益',
+             '借款', '存款', '贷款', '应收', '应付', '存货', '投资', '股本', '公积', '准备')
+
+
+# Different names for the same line item, mapped to one spelling before comparing.
+SYNONYMS = (('净资产', '权益'), ('所有者权益', '股东权益'), ('总资产', '资产总计'),
+            ('资产总额', '资产总计'))
+
+
+def matches(phrase: str | None, label: str) -> bool:
+    """Whether the review's own words are compatible with the chosen line item."""
+    if not phrase:
+        return False
+    phrase, label = norm(phrase), norm(label)
+    if phrase in label or label in phrase:
+        return True
+    for a, b in SYNONYMS:
+        phrase = phrase.replace(a, b)
+        label = label.replace(a, b)
+    nouns = [noun for noun in KEY_NOUNS if noun in phrase]
+    if not nouns:
+        return True  # "同比增长" names no line item, so it cannot contradict one
+    if any(noun not in label for noun in nouns):
+        return False
+    # Abbreviations ("归母净利润") share few characters with the full name but
+    # keep its deciding noun.
+    if any(noun in phrase and noun in label for noun in KEY_NOUNS):
+        return True
+    pairs = {label[i:i + 2] for i in range(len(label) - 1)}
+    shared = {phrase[i:i + 2] for i in range(len(phrase) - 1)} & pairs
+    return bool(pairs) and len(shared) / len(pairs) >= 0.5

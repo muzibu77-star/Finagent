@@ -15,7 +15,7 @@ import sqlite3
 
 from src.model.api_client import ApiClient
 from src.verify.checker import SCALES, Checker, Claim
-from src.verify.extract import PROMPT, line_items, locate, parse
+from src.verify.extract import PROMPT, line_items, locate, matches, parse
 from src.evaluation.draft_pilot import statement_pages
 
 DIRECT = '''下面是一篇关于{company}{year}年年度报告的点评，以及该年报合并财务报表的原文（由PDF提取，排版可能错乱）。
@@ -76,21 +76,36 @@ def main() -> None:
             if start is None or start in verdicts:
                 continue
             kind, unit, label = item.get('type'), item.get('unit'), item.get('label')
-            if not label or kind not in ('amount', 'growth') or not isinstance(item.get('year'), int):
+            year = item.get('year')
+            if kind not in ('amount', 'growth', 'change', 'ratio') or not isinstance(year, int):
                 verdicts[start] = {'verdict': 'unsupported', 'reason': 'not a checkable claim'}
-                continue
-            if (kind == 'amount' and unit not in SCALES) or (kind == 'growth' and unit != '%'):
-                verdicts[start] = {'verdict': 'unsupported', 'reason': 'unit does not fit type'}
                 continue
             if item.get('scope') == '母公司':
                 verdicts[start] = {'verdict': 'unsupported', 'reason': 'parent-company claim'}
                 continue
-            verdict = checker.check(Claim(
-                code=review['code'], metric=label, fiscal_year=item['year'],
-                stated=str(item['number']), unit=unit, as_of=published,
-                kind='growth' if kind == 'growth' else 'direct'))
+            if kind == 'ratio':
+                top, bottom = item.get('numerator'), item.get('denominator')
+                if unit != '%' or not isinstance(top, list) or not isinstance(bottom, list):
+                    verdicts[start] = {'verdict': 'unsupported', 'reason': 'ratio parts not named'}
+                    continue
+                claim = Claim(code=review['code'], metric='', fiscal_year=year,
+                              stated=str(item['number']), unit=unit, as_of=published,
+                              kind='ratio', numerator=top, denominator=bottom)
+            else:
+                expected_unit = unit == '%' if kind == 'growth' else unit in SCALES
+                if not label or not expected_unit:
+                    verdicts[start] = {'verdict': 'unsupported', 'reason': 'no line item or unit'}
+                    continue
+                if not matches(item.get('phrase'), label):
+                    verdicts[start] = {'verdict': 'unsupported', 'label': label,
+                                       'reason': 'line item does not fit the wording'}
+                    continue
+                claim = Claim(code=review['code'], metric=label, fiscal_year=year,
+                              stated=str(item['number']), unit=unit, as_of=published,
+                              kind={'amount': 'direct'}.get(kind, kind))
+            verdict = checker.check(claim)
             verdicts[start] = {'verdict': verdict.verdict, 'error': verdict.error,
-                               'expected': verdict.expected, 'label': label, 'year': item['year'],
+                               'expected': verdict.expected, 'label': label, 'year': year,
                                'type': kind, 'reason': verdict.reason}
         for number in review['numbers']:
             truth = labels[(review['id'], number['start'])]

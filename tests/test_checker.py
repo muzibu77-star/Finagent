@@ -26,6 +26,9 @@ def build():
     fact(db, 'r2024', '一、营业收入', '2023年度', '150,560,330,316.45')
     fact(db, 'r2024', '营业收入', '本期发生额', '90,000,000,000.00', scope='母公司', title='母公司利润表')
     fact(db, 'r2023', '营业收入', '2023年度', '150,560,330,316.45')
+    fact(db, 'r2024', '营业成本', '2024年度', '13,000,000,000.00')
+    fact(db, 'r2024', '营业成本', '2023年度', '12,000,000,000.00')
+    fact(db, 'r2024', '营业成本', '2023年度 重述前', '11,000,000,000.00')
     document(db, 'm1', 'executive-meetings', None, '2024-06-07', code=None)
     add_page(db, 'm1', 1, '新华社北京6月7日电 国务院总理李强6月7日主持召开国务院常务会议，听取当前房地产市场形势汇报。')
     return Checker(db)
@@ -69,6 +72,21 @@ class CheckerTest(unittest.TestCase):
         self.assertEqual(self.checker.check(claim('2024年6月7日', **base)).verdict, 'consistent')
         wrong = self.checker.check(claim('2026年6月7日', **base))
         self.assertEqual((wrong.verdict, wrong.expected), ('inconsistent', '2024年6月7日'))
+
+    def test_margin_from_line_items(self):
+        margin = claim('92.5', unit='%', kind='ratio', numerator=['营业收入', '-营业成本'],
+                       denominator=['营业收入'])
+        self.assertEqual(self.checker.check(margin).verdict, 'consistent')
+        self.assertEqual(self.checker.check(claim('90.0', unit='%', kind='ratio',
+                         numerator=['营业成本'], denominator=['营业收入'])).verdict, 'inconsistent')
+        self.assertEqual(self.checker.check(claim('9.0', unit='%', kind='ratio',
+                         numerator=['研发费用'], denominator=['营业收入'])).verdict, 'unsupported')
+
+    def test_change_in_amount_uses_the_restated_comparative(self):
+        self.assertEqual(self.checker.check(claim('10.00', kind='change', metric='营业成本')).verdict,
+                         'consistent')
+        self.assertEqual(self.checker.check(claim('20.00', kind='change', metric='营业成本')).verdict,
+                         'inconsistent')
 
 
 if __name__ == '__main__':
