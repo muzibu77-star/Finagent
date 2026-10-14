@@ -25,6 +25,7 @@ UNIT = re.compile(r'(?:单位|人民币|港币|美元)[^。\d]{0,12}?(百万元|
 # or "除特别注明外，均四舍五入取整到百万元".
 DECLARED = re.compile(r'除[^。\n]{0,14}(?:注明|说明|标明|指明|列明)[^。\n\d]{0,24}?(百万元|千元|万元|亿元|元)')
 OTHER_UNIT = re.compile(r'单位\s*[:：]\s*([^\s:：，,。)）(（\d]{1,6})')
+IDENTIFIER = re.compile(r'\d{15,}')
 DATE_COLUMN = re.compile(r'时间|日期|年月|到期日|起始日')
 CURRENCY = re.compile(r'人民币|港币|港元|美元')
 DATE = re.compile(r'\d{4}\s*年(?:\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?|\s*度|\s*\d{1,2}\s*[-—–~至]\s*\d{1,2}\s*月)')
@@ -146,6 +147,11 @@ def extract(document, middle: dict) -> dict:
                                                  and isinstance(part['content'], str))])
             meta = {**meta, **stated_unit(own, 'table header')}
         if meta['unit'] is None:
+            # A running header such as "(金额单位：人民币百万元)" or "2025年度 人民币元".
+            for running in before:
+                if running['type'] == 'header' and len(block_text(running)) <= 60:
+                    meta = {**meta, **stated_unit(block_text(running), 'page header')}
+        if meta['unit'] is None:
             earlier = [fields for page, fields in declared if page <= pdf_page]
             if earlier:
                 meta = {**meta, **earlier[-1]}
@@ -163,10 +169,11 @@ def extract(document, middle: dict) -> dict:
                 section = label
             for column in sorted(columns):
                 value = values.get((row, column))
-                # The "附注" column holds note numbers and a date column holds
-                # values such as "2025.11"; neither is a disclosed amount.
+                # The "附注" column holds note numbers, a date column holds values
+                # such as "2025.11" and a long ungrouped integer is a registration
+                # code; none is a disclosed amount.
                 if (value is None or columns[column] in NOTE_COLUMNS
-                        or DATE_COLUMN.search(columns[column])):
+                        or DATE_COLUMN.search(columns[column]) or IDENTIFIER.fullmatch(value['text'])):
                     continue
                 title = meta['title'] or ''
                 fact = {
@@ -175,7 +182,9 @@ def extract(document, middle: dict) -> dict:
                     'section': section, 'column_header': columns[column] or None,
                     'scope': '母公司' if '母公司' in title else '合并' if '合并' in title else None,
                     **meta}
-                if '%' in value['text'] or re.search(r'[%％]|比例|百分', columns[column] + label):
+                # Only the value or its column says it is a percentage; a row
+                # label such as "以适用税率25%计算的所得税费用" names an amount.
+                if '%' in value['text'] or re.search(r'[%％]|比例|百分', columns[column]):
                     fact.update(unit='%', scale=None, currency=None, unit_source='percentage')
                 facts.append(fact)
         for item in mapping['unmapped_cells']:
