@@ -1,6 +1,7 @@
 import unittest
 
-from src.data.table_facts import DECLARED, context, grid, header_rows, scope, stated_unit
+from src.data.table_facts import (DECLARED, context, grid, header_rows, note_number, scope,
+                                   stated_unit)
 from src.data.table_map import table_cells
 
 
@@ -72,6 +73,11 @@ class TableFactsTest(unittest.TestCase):
         self.assertEqual(scope('母公司利润表', '本期发生额'), '母公司')
         self.assertEqual(scope('合并利润表', '本期发生额'), '合并')
         self.assertIsNone(scope('应收账款', '期末余额'))
+
+    def test_note_numbers_under_a_merged_header(self):
+        self.assertTrue(note_number('2023年12月31日 附注五', '42'))
+        self.assertFalse(note_number('2023年12月31日 附注五', '1,234'))
+        self.assertFalse(note_number('2023年12月31日', '42'))
 
 
 if __name__ == '__main__':

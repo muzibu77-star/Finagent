@@ -92,6 +92,11 @@ def declared_units(document) -> list[tuple[int, dict]]:
     return found
 
 
+def note_number(column: str, text: str) -> bool:
+    """A note reference in a column whose merged header mentions "附注"."""
+    return '附注' in column and re.fullmatch(r'\d{1,3}', text) is not None
+
+
 def scope(title: str, column: str) -> str | None:
     """Consolidated or parent figures; a "合并及公司" table says so per column."""
     if re.search(r'合并', column):
@@ -190,7 +195,8 @@ def extract(document, middle: dict) -> dict:
                 # such as "2025.11" and a long ungrouped integer is a registration
                 # code; none is a disclosed amount.
                 if (value is None or columns[column] in NOTE_COLUMNS
-                        or DATE_COLUMN.search(columns[column]) or IDENTIFIER.fullmatch(value['text'])):
+                        or DATE_COLUMN.search(columns[column]) or IDENTIFIER.fullmatch(value['text'])
+                        or note_number(columns[column], value['text'])):
                     continue
                 title = meta['title'] or ''
                 fact = {
@@ -203,6 +209,10 @@ def extract(document, middle: dict) -> dict:
                 # label such as "以适用税率25%计算的所得税费用" names an amount.
                 if '%' in value['text'] or re.search(r'[%％]|比例|百分', columns[column]):
                     fact.update(unit='%', scale=None, currency=None, unit_source='percentage')
+                elif '每股' in label:
+                    # Earnings per share are stated in yuan per share whatever the
+                    # table's amount unit is.
+                    fact.update(unit='元/股', scale=None, currency='人民币', unit_source='per share')
                 facts.append(fact)
         for item in mapping['unmapped_cells']:
             problems.append({'pdf_page': pdf_page, 'problem': 'cell not in PDF text', **item})
