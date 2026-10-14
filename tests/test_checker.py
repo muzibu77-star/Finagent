@@ -81,6 +81,10 @@ class CheckerTest(unittest.TestCase):
                          numerator=['营业成本'], denominator=['营业收入'])).verdict, 'inconsistent')
         self.assertEqual(self.checker.check(claim('9.0', unit='%', kind='ratio',
                          numerator=['研发费用'], denominator=['营业收入'])).verdict, 'unsupported')
+        # Same magnitude, opposite sign: the parts are wrong, not a match.
+        flipped = claim('92.5', unit='%', kind='ratio', numerator=['营业成本', '-营业收入'],
+                        denominator=['营业收入'])
+        self.assertEqual(self.checker.check(flipped).verdict, 'unsupported')
 
     def test_change_in_amount_uses_the_restated_comparative(self):
         self.assertEqual(self.checker.check(claim('10.00', kind='change', metric='营业成本')).verdict,

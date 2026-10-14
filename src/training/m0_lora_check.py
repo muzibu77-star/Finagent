@@ -21,6 +21,7 @@ import torch
 import yaml
 
 from src.training import distributed
+from src.training.chat_encoding import encode_messages
 
 # peft initialises CUDA when imported, so a multi-GPU process is confined to its own
 # GPU before the remaining imports.
@@ -38,104 +39,47 @@ def read_jsonl(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text().splitlines()]
 
 
+def training_issuers(splits: Path) -> set[str]:
+    return {row['code'] for row in json.loads(splits.read_text())['training']}
+
+
+def review_issuer(review_id: str) -> str:
+    """``review-<model>_<condition>-<code>-<announcement>`` names its issuer."""
+    parts = review_id.split('-')
+    if len(parts) < 4 or parts[0] != 'review':
+        raise ValueError(f'not a review id: {review_id}')
+    return parts[2]
+
+
 def prepare_samples(config: dict, tokenizer) -> tuple[list[dict], dict]:
-    root = Path(config['data_dir'])
-    summary = json.loads((root / 'summary.json').read_text())
-    if not summary['split_protocol_frozen']:
-        raise ValueError('training requires a frozen data protocol')
-    receipt = json.loads((root / 'validation.json').read_text())
-    if not receipt['passed']:
-        raise ValueError('data validation did not pass')
-    for name, expected in receipt['sha256'].items():
-        if hashlib.sha256((root / f'{name}.jsonl').read_bytes()).hexdigest() != expected:
-            raise ValueError(f'validated data changed: {name}')
-    manifest = read_jsonl(root / 'manifest.jsonl')
-    if 'prepared_samples' in config:
-        prepared = Path(config['prepared_samples'])
-        if hashlib.sha256(prepared.read_bytes()).hexdigest() != config['samples_sha256']:
-            raise ValueError('prepared supervision changed')
-        samples = json.loads(prepared.read_text())
-        allowed = {r['task_id'] for r in manifest if r['original_split'] == 'train'
-                   and r['official_eligible']}
-        source_reports = {r['task_id']: r['source_report_id'] for r in manifest}
-        ids = [sample['task_id'] for sample in samples]
-        if config.get('autonomous_supervision', False):
-            from src.training.autonomous_sft import validate_training_parents
-            validate_training_parents(samples, manifest,
-                Path(config['complex_training_root']) if config.get('complex_training_root') else None,
-                config.get('complex_training_lock_sha256'))
-        elif len(ids) != len(set(ids)) or not set(ids) <= allowed:
-            raise ValueError('supervision contains duplicate or held-out tasks')
-        for sample in samples:
-            variants = [sample]
-            if config.get('training_objective') == 'dpo':
-                if (sample['chosen_reward'] != 1 or sample['rejected_reward'] != 0
-                        or sample['source_report_id'] != source_reports[sample['task_id']]
-                        or not all(math.isfinite(sample[key]) and sample[key] <= 0 for key in
-                                   ('reference_chosen_logp', 'reference_rejected_logp'))
-                        or config['reference_adapter_sha256'] != config['initial_adapter_sha256']):
-                    raise ValueError('invalid execution preference or reference binding')
-                variants = [sample['chosen'], sample['rejected']]
-                prefixes = [v['input_ids'][:next((i for i, label in enumerate(v['labels'])
-                            if label != -100), len(v['labels']))] for v in variants]
-                if not prefixes[0] or prefixes[0] != prefixes[1]:
-                    raise ValueError('preference completions must share exactly the same prompt')
-            for variant in variants:
-                tokens, labels = variant['input_ids'], variant['labels']
-                if (not tokens or len(tokens) != len(labels)
-                        or len(tokens) > config['max_sequence_length']
-                        or not any(label != -100 for label in labels[1:])
-                        or any(label not in (-100, token) for token, label in zip(tokens, labels))):
-                    raise ValueError('invalid prepared token/mask contract')
-        if len(samples) != config['samples']:
-            raise ValueError('prepared sample count mismatch')
-        lengths = ([len(s[side]['input_ids']) for s in samples for side in ('chosen', 'rejected')]
-                   if config.get('training_objective') == 'dpo' else
-                   [len(s['input_ids']) for s in samples])
-        return samples, {'selected': len(samples),
-                         'max_tokens': max(lengths),
-                         'prepared_samples': str(prepared)}
-    evidence = {r['evidence_id']: r for r in read_jsonl(root / 'evidence.jsonl')}
-    questions = {r['task_id']: r for r in read_jsonl(root / 'questions.jsonl')}
-    gold = {r['task_id']: r for r in read_jsonl(root / 'gold.jsonl')}
-    candidates = [r for r in manifest if r['original_split'] == 'train'
-                  and r['official_eligible'] and gold[r['task_id']]['labels_available']]
-    random.Random(config['seed']).shuffle(candidates)
-    selected = []
-    rejected = 0
-    for row in candidates:
-        task_id = row['task_id']
-        question = questions[task_id]
-        context = {k: v for k, v in evidence[row['evidence_id']].items()
-                   if k != 'evidence_id'}
-        user = json.dumps(context, ensure_ascii=False) + '\n' + question['question']
-        answer = str(gold[task_id]['gold']['answer'])
-        messages = [{'role': 'user', 'content': user}]
-        prefix = tokenizer.apply_chat_template(messages, add_generation_prompt=True,
-                                               enable_thinking=False, tokenize=False)
-        full_text = tokenizer.apply_chat_template(messages + [
-            {'role': 'assistant', 'content': answer}], enable_thinking=False,
-            add_generation_prompt=False, tokenize=False)
-        if not full_text.startswith(prefix):
-            raise ValueError('assistant prefix mismatch')
-        encoded = tokenizer(full_text, add_special_tokens=False, return_offsets_mapping=True)
-        full = encoded['input_ids']
-        if len(full) > config['max_sequence_length']:
-            rejected += 1
-            continue
-        # Offset boundaries remain valid when BPE merges across the prefix edge.
-        labels = [token if start >= len(prefix) else -100
-                  for token, (start, end) in zip(full, encoded['offset_mapping'])]
-        if not any(x != -100 for x in labels):
-            raise ValueError('empty assistant loss mask')
-        selected.append({'task_id': task_id, 'input_ids': full, 'labels': labels})
-    if len(selected) < config['samples']:
-        raise ValueError('not enough complete eligible examples')
-    # Include the longest admissible example to exercise the resource boundary.
-    longest = max(selected, key=lambda row: len(row['input_ids']))
-    samples = [longest] + [s for s in selected if s is not longest][:config['samples'] - 1]
-    return samples, {'eligible': len(candidates), 'overlength_excluded': rejected,
-                     'selected': len(samples), 'max_tokens': len(longest['input_ids'])}
+    """Chat samples ``{review_id, messages}``; only the final assistant turn is supervised.
+
+    Every sample must come from a training-split issuer, so development and
+    acceptance reports never reach the weights.
+    """
+    path = Path(config['chat_samples'])
+    if hashlib.sha256(path.read_bytes()).hexdigest() != config['samples_sha256']:
+        raise ValueError('prepared supervision changed')
+    allowed = training_issuers(Path(config['issuer_splits']))
+    samples = []
+    for row in read_jsonl(path):
+        if review_issuer(row['review_id']) not in allowed:
+            raise ValueError(f"sample outside the training split: {row['review_id']}")
+        encoded = encode_messages(tokenizer, row['messages'], None, final_only=True)
+        if len(encoded['input_ids']) > config['max_sequence_length']:
+            raise ValueError(f"sample longer than max_sequence_length: {row['review_id']}")
+        samples.append({'task_id': row['review_id'], **encoded})
+    if len(samples) != config['samples'] or len({s['task_id'] for s in samples}) != len(samples):
+        raise ValueError('prepared sample count mismatch or duplicate samples')
+    # The longest sample goes first so the first update meets the memory peak;
+    # the rest are in a fixed shuffled order.
+    longest = max(samples, key=lambda s: len(s['input_ids']))
+    rest = [s for s in samples if s is not longest]
+    random.Random(config['seed']).shuffle(rest)
+    samples = [longest] + rest
+    lengths = [len(s['input_ids']) for s in samples]
+    return samples, {'selected': len(samples), 'max_tokens': max(lengths),
+                     'prepared_samples': str(path)}
 
 
 def validated_initial_adapter(config: dict, model_config: dict) -> Path | None:
@@ -164,7 +108,7 @@ def validated_initial_adapter(config: dict, model_config: dict) -> Path | None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--config', default='configs/m0_training.json')
+    parser.add_argument('--config', required=True)
     parser.add_argument('--output-dir', type=Path, required=True)
     parser.add_argument('--resume', type=Path)
     parser.add_argument('--stop-after', type=int)
@@ -188,13 +132,6 @@ def main() -> int:
         if os.environ.get('CUBLAS_WORKSPACE_CONFIG') != ':4096:8':
             raise ValueError('deterministic training requires CUBLAS_WORKSPACE_CONFIG=:4096:8')
         torch.use_deterministic_algorithms(True)
-    if config.get('training_objective', 'sft') not in ('sft', 'dpo'):
-        raise ValueError('unsupported training objective')
-    if config.get('training_objective') == 'dpo':
-        if not math.isfinite(config['beta']) or config['beta'] <= 0:
-            raise ValueError('DPO beta must be finite and positive')
-        from src.training.preference_data import require_full_baseline
-        require_full_baseline(Path(config['baseline_root']))
     model_config = yaml.safe_load(Path(config['model_config']).read_text())['model']
     rank, world = distributed.setup()
     positions = distributed.local_positions(config['gradient_accumulation'], rank, world)
@@ -202,8 +139,6 @@ def main() -> int:
     if sharded and (world == 1 or args.offload_unused_vision):
         raise ValueError('FSDP weight sharding needs several processes and manages the vision tower itself')
     if world > 1:
-        if config.get('training_objective', 'sft') != 'sft':
-            raise ValueError('multi-GPU runs support SFT training only')
         if args.verify_only and not args.fsdp_frozen_weights:
             raise ValueError('verify replicated-weight checkpoints on one process')
         LOG.info('process %d of %d on physical GPU %s computes update positions %s',
@@ -286,8 +221,6 @@ def main() -> int:
         if (embedding.weight.requires_grad or embedding.weight.untyped_storage().data_ptr()
                 == model.get_output_embeddings().weight.untyped_storage().data_ptr()):
             raise ValueError('embedding offload requires frozen, untied input weights')
-        if config.get('training_objective', 'sft') != 'sft':
-            raise ValueError('embedding offload is verified for SFT only')
 
     def needs_offload(index: int) -> bool:
         """Memory offloads cost time; ``offload_min_tokens`` limits them to long samples.
@@ -296,26 +229,16 @@ def main() -> int:
         them per sample does not change the training result. Absent key: always offload.
         """
         sample = samples[index % len(samples)]
-        tokens = (len(sample['input_ids']) if 'input_ids' in sample
-                  else max(len(sample[side]['input_ids']) for side in ('chosen', 'rejected')))
+        tokens = len(sample['input_ids'])
         return not sharded and tokens >= config.get('offload_min_tokens', 0)
 
-    def batch(index: int, side: str | None = None) -> dict:
+    def batch(index: int) -> dict:
         sample = samples[index % len(samples)]
-        if side is not None:
-            sample = sample[side]
         ids = torch.tensor([sample['input_ids']], device=device)
         return {'input_ids': ids, 'attention_mask': torch.ones_like(ids),
                 'labels': torch.tensor([sample['labels']], device=device)}
 
     def compute_loss(index: int):
-        if config.get('training_objective') == 'dpo':
-            from src.training.preference_loss import dpo_loss, sequence_log_probability
-            sample = samples[index % len(samples)]
-            chosen = sequence_log_probability(model, batch(index, 'chosen'))
-            rejected = sequence_log_probability(model, batch(index, 'rejected'))
-            return dpo_loss(chosen, rejected, sample['reference_chosen_logp'],
-                            sample['reference_rejected_logp'], config['beta'])
         inputs = batch(index)
         if args.checkpointing_min_tokens and model.training:
             # Recomputation changes time and memory only, not the result.
@@ -370,10 +293,8 @@ def main() -> int:
                 loss = compute_loss(sample_index)
             if not torch.isfinite(loss):
                 sample = samples[sample_index % len(samples)]
-                token_count = (sum(len(sample[side]['input_ids']) for side in ('chosen', 'rejected'))
-                               if config.get('training_objective') == 'dpo' else len(sample['input_ids']))
                 failure = {'step': step, 'micro': micro, 'task_id': sample['task_id'],
-                           'tokens': token_count, 'error': 'nonfinite loss'}
+                           'tokens': len(sample['input_ids']), 'error': 'nonfinite loss'}
                 if sharded:
                     # Peers are inside FSDP collectives; stop now and let the launcher end the group.
                     (output / f'failure_rank{rank}.json').write_text(json.dumps(failure, indent=2))

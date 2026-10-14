@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import json
 import logging
+import re
 from pathlib import Path
 import sqlite3
 import time
@@ -19,7 +20,6 @@ import pypdfium2 as pdfium
 
 from src.data.table_facts import extract
 from src.data.table_map import key
-from src.retrieval.report_index import terms
 
 log = logging.getLogger(__name__)
 SCHEMA = '''
@@ -41,6 +41,13 @@ CREATE TABLE meta (name TEXT PRIMARY KEY, value TEXT NOT NULL);
 '''
 FACT_FIELDS = ('row_label', 'section', 'column_header', 'title', 'statement_date', 'unit',
                'scale', 'currency', 'unit_source', 'scope')
+
+
+def terms(text: str) -> list[str]:
+    pieces = re.findall(r'[a-z0-9]+|[\u4e00-\u9fff]+', text.lower())
+    return [token for p in pieces for token in
+            ([p] if not '\u4e00' <= p[0] <= '\u9fff' or len(p) == 1
+             else [p[i:i + 2] for i in range(len(p) - 1)])]
 
 
 def digits(text: str) -> str:

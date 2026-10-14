@@ -1,0 +1,16 @@
+{
+  "model_config": "configs/base_model.yaml",
+  "chat_samples": "data/staged/extraction_sft_v1/training.jsonl",
+  "samples_sha256": "bb458b9dd208c963d993379340eb9c7e7ece5d0bc2c258fea90e0d081576d2fc",
+  "issuer_splits": "configs/issuer_splits.json",
+  "samples": 192,
+  "max_sequence_length": 10240,
+  "rank": 16,
+  "gradient_accumulation": 8,
+  "updates": 72,
+  "learning_rate": 0.0001,
+  "seed": 0,
+  "precision": "bf16",
+  "target_modules": "model\\.language_model\\.layers\\.\\d+\\.(self_attn\\.(q_proj|k_proj|v_proj|o_proj)|linear_attn\\.(in_proj_qkv|in_proj_z|in_proj_b|in_proj_a|out_proj)|mlp\\.(gate_proj|up_proj|down_proj))",
+  "selective_fp32_loss": true
+}

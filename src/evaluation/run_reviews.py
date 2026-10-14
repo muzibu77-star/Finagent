@@ -9,14 +9,15 @@ consistent, since those would reach a published report.
 
 import argparse
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 import json
 from pathlib import Path
-import re
 import sqlite3
 
 from src.model.api_client import ApiClient
-from src.verify.checker import SCALES, Checker, Claim
-from src.verify.extract import PROMPT, checkable, line_items, locate, matches, parse
+from src.verify.checker import Checker
+from src.verify.extract import PROMPT, line_items, locate, parse
+from src.verify.pipeline import judge
 from src.evaluation.draft_pilot import statement_pages
 
 DIRECT = '''下面是一篇关于{company}{year}年年度报告的点评，以及该年报合并财务报表的原文（由PDF提取，排版可能错乱）。
@@ -36,7 +37,13 @@ def main() -> None:
     parser.add_argument('--reviews', type=Path, required=True)
     parser.add_argument('--labels', type=Path, required=True, help='verified labels of the same reviews')
     parser.add_argument('--model', default='deepseek-flash')
+    parser.add_argument('--url', default='https://api.deepseek.com/chat/completions',
+                        help='chat completions endpoint; a local vLLM server for local models')
     parser.add_argument('--budget-usd', type=float, required=True)
+    parser.add_argument('--oracle', type=Path,
+                        help='extraction samples whose answers replace the model (checks the targets)')
+    parser.add_argument('--workers', type=int, default=1,
+                        help='concurrent extraction requests, for a local server')
     parser.add_argument('--output-dir', type=Path, required=True)
     parser.add_argument('--direct', action='store_true',
                         help='baseline: the model judges each number itself from the statements')
@@ -44,14 +51,32 @@ def main() -> None:
     args.output_dir.mkdir(parents=True, exist_ok=True)
     db = sqlite3.connect(f'file:{args.library}?mode=ro', uri=True)
     checker = Checker(db)
-    client = ApiClient(args.model, args.budget_usd, args.output_dir / 'api_cache.jsonl')
+    client = ApiClient(args.model, args.budget_usd, args.output_dir / 'api_cache.jsonl', url=args.url)
     labels = {}
     for line in args.labels.read_text().splitlines():
         row = json.loads(line)
         labels[(row['review_id'], row['start'])] = row['label']
     results, table = [], Counter()
-    for line in args.reviews.read_text().splitlines():
-        review = json.loads(line)
+    reviews = [json.loads(line) for line in args.reviews.read_text().splitlines()]
+    oracle = {}
+    if args.oracle:
+        for line in args.oracle.read_text().splitlines():
+            sample = json.loads(line)
+            oracle[sample['review_id']] = sample['messages'][-1]['content']
+    if args.workers > 1 and not args.direct:
+        # Answers land in the client's cache; the loop below then reads them back.
+        def extract(review: dict) -> None:
+            items = line_items(db_for_threads(), review['code'], review['fiscal_year'])
+            client.chat([{'role': 'user', 'content': PROMPT.format(
+                company=review['company'], year=review['fiscal_year'],
+                labels='\n'.join(items) or '（无）', review=review['text'])}], max_tokens=8000)
+
+        def db_for_threads() -> sqlite3.Connection:
+            return sqlite3.connect(f'file:{args.library}?mode=ro', uri=True)
+
+        with ThreadPoolExecutor(args.workers) as pool:
+            list(pool.map(extract, reviews))
+    for review in reviews:
         year = review['fiscal_year']
         published = db.execute('SELECT published FROM documents WHERE id = ?',
                                (review['document_id'],)).fetchone()[0]
@@ -69,52 +94,12 @@ def main() -> None:
                 if start is not None and start not in verdicts:
                     verdicts[start] = {'verdict': meaning.get(item.get('verdict'), 'unsupported')}
         items = [] if args.direct else line_items(db, review['code'], year)
-        answer = None if args.direct else client.chat([{'role': 'user', 'content': PROMPT.format(
+        answer = {'content': oracle[review['id']]} if oracle else None if args.direct else client.chat([{'role': 'user', 'content': PROMPT.format(
             company=review['company'], year=year, labels='\n'.join(items) or '（无）',
             review=review['text'])}], max_tokens=8000)
-        for item in ([] if args.direct else parse(answer['content'])):
-            start = locate(review['text'], str(item['number']), item.get('occurrence'))
-            if start is None or start in verdicts:
-                continue
-            kind, unit, label = item.get('type'), item.get('unit'), item.get('label')
-            year = item.get('year')
-            if kind not in ('amount', 'growth', 'change', 'ratio') or not isinstance(year, int):
-                verdicts[start] = {'verdict': 'unsupported', 'reason': 'not a checkable claim'}
-                continue
-            if not checkable(item.get('phrase')):
-                verdicts[start] = {'verdict': 'unsupported', 'reason': 'quarter, segment or own-method ratio'}
-                continue
-            if item.get('scope') == '母公司':
-                verdicts[start] = {'verdict': 'unsupported', 'reason': 'parent-company claim'}
-                continue
-            if kind == 'ratio':
-                top, bottom = item.get('numerator'), item.get('denominator')
-                if unit != '%' or not isinstance(top, list) or not isinstance(bottom, list):
-                    verdicts[start] = {'verdict': 'unsupported', 'reason': 'ratio parts not named'}
-                    continue
-                claim = Claim(code=review['code'], metric='', fiscal_year=year,
-                              stated=str(item['number']), unit=unit, as_of=published,
-                              kind='ratio', numerator=top, denominator=bottom)
-            else:
-                expected_unit = unit == '%' if kind == 'growth' else unit in SCALES
-                if not label or not expected_unit:
-                    verdicts[start] = {'verdict': 'unsupported', 'reason': 'no line item or unit'}
-                    continue
-                if not matches(item.get('phrase'), label):
-                    verdicts[start] = {'verdict': 'unsupported', 'label': label,
-                                       'reason': 'line item does not fit the wording'}
-                    continue
-                claim = Claim(code=review['code'], metric=label, fiscal_year=year,
-                              stated=str(item['number']), unit=unit, as_of=published,
-                              kind={'amount': 'direct'}.get(kind, kind),
-                              direction={'up': 1, 'down': -1}.get(item.get('direction')))
-            if not re.fullmatch(r'-?[\d,，]*\.?\d+', claim.stated.strip()):
-                verdicts[start] = {'verdict': 'unsupported', 'reason': 'number not written plainly'}
-                continue
-            verdict = checker.check(claim)
-            verdicts[start] = {'verdict': verdict.verdict, 'error': verdict.error,
-                               'expected': verdict.expected, 'label': label, 'year': year,
-                               'type': kind, 'reason': verdict.reason}
+        if not args.direct:
+            verdicts = judge(checker, review['text'], parse(answer['content']),
+                             review['code'], published)
         for number in review['numbers']:
             truth = labels[(review['id'], number['start'])]
             mine = verdicts.get(number['start'], {'verdict': 'missed'})

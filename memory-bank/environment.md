@@ -1,6 +1,6 @@
 # 环境恢复与运行
 
-更新：2026-10-13。
+更新：2026-10-14。
 
 ## 机器与基础环境
 
@@ -9,7 +9,7 @@
 - 会话重启会终止由会话直接启动的后台任务，耗时任务须脱离会话启动。
 - 命令行没有 GitHub 凭据，推送使用编辑器自带的 git 凭据助手。
 
-## 主环境（训练、检索、测试）
+## 主环境（训练、测试）
 
 ```bash
 python -m venv --system-site-packages .venv
@@ -17,7 +17,7 @@ python -m venv --system-site-packages .venv
 .venv/bin/python -m unittest discover -s tests -q
 ```
 
-`--system-site-packages` 用于复用系统 Torch。`requirements-research.txt` 含 Qdrant 客户端、MCP、SciPy、pandas。测试全部在 CPU 上运行，不需要模型权重。
+`--system-site-packages` 用于复用系统 Torch。`requirements-research.txt` 只含 MCP（阶段 5 使用）。测试全部在 CPU 上运行，不需要模型权重。
 
 ## 其他隔离环境
 
@@ -85,12 +85,9 @@ nohup setsid .venv/bin/python -m src.data.parse_reports --output-dir data/staged
 
 | 位置 | 内容 |
 |---|---|
-| `models/bge-m3`、`models/bge-reranker-v2-m3` | 向量与重排模型，revision 见 `configs/jd_retrieval.json` |
-| `/test/Finagent/models/Qwen3.5-9B` | 现有基座模型，路径与 revision 见 `configs/m0_inference.yaml`；阶段 4 可能更换 |
-| `data/raw/chinese_expanded/` | 招商银行 2023、中国电信 2023、康美药业 2017 及更正公告、新纶科技 2018／2019 及更正公告的原件 |
-| `data/raw/reports/`、`data/staged/reports_v2/` | 中国移动财报原件与分页资料库 |
+| `/test/Finagent/models/Qwen3.5-9B` | 现有基座模型，路径与 revision 见 `configs/base_model.yaml`；阶段 4 可能更换 |
 | `data/raw/cninfo/` | 30 家发行人 2023—2025 财年年度报告与更正公告（92 个文件、741 MB），清单与哈希见 `configs/cninfo_sources.json`，用 `python -m src.data.cninfo_reports --pause 2.5` 重新获取 |
-| `data/staged/jd_chinese_v4/`、`data/staged/m5_chinese_v1/` | 从中文原页构造的算术题（原值、单位、页码、哈希） |
+| `data/raw/chinese_expanded/` | 康美药业 2017、新纶科技 2018 年报及更正公告原件（`configs/jd_restatement*.json` 引用，重建出处库需要）；同目录另有招商银行、中国电信 2023 等旧路线原件 |
 | `data/raw/policy/` | 政策文件与统计发布 1,855 篇的原始网页和正文（206 MB），清单见 `configs/policy_sources.json`，用 `python -m src.data.policy_sources` 重新获取 |
 | `/test/Finagent/mineru_home/` | MinerU 模型与配置 |
 | `data/staged/cninfo_parsed_v1/` | 年报的 MinerU 解析结果（全量解析任务的输出） |
@@ -114,8 +111,20 @@ PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True CUBLAS_WORKSPACE_CONFIG=:4096:8
 - 续训加 `--resume <检查点>`；进度与检查点由 rank 0 写入输出目录；同一检查点可在不同卡数之间续训。
 - FSDP 加 `--fsdp-frozen-weights`（不与 `--offload-unused-vision` 同用）；DeepSpeed 使用 `src.training.deepspeed_lora` 并加上述 `PYTHONPATH`。
 - 同机并发多个分布式训练须使用不同的 `--master_port`。
-- 训练入口的数据装载目前只认旧格式的样本，核查任务的训练数据格式在阶段 4 确定后才能使用上述命令（见 [architecture.md](architecture.md)）。
+- 训练入口的数据装载只读训练配置里 `chat_samples` 指向的 JSONL（`{review_id, messages}`，见 [architecture.md](architecture.md)）；`--config` 为必填，阶段 4 的配置是 `configs/stage4_extraction_training.json`，基座模型配置为 `configs/base_model.yaml`。
 
-## 本地服务
+## 本地模型服务与评测（阶段 4）
 
-`configs/model_choice.json` 指向的适配器权重已不在本机，`src.service.server` 在新模型就绪前不能启动。
+```bash
+PATH=$PWD/.venv-serving/bin:$PATH CUDA_VISIBLE_DEVICES=0 .venv-serving/bin/vllm serve \
+  /test/Finagent/models/Qwen3.5-9B/c202236235762e1c871ad0ccb60c8ee5ba337b9a \
+  --served-model-name qwen3.5-9b --port 18090 --max-model-len 16384 --gpu-memory-utilization 0.88 \
+  --max-num-seqs 8 --enforce-eager --language-model-only \
+  --enable-lora --max-lora-rank 16 --lora-modules qwen3.5-9b-extract=/test/Finagent/runs/stage4_extract_v1/step_0072
+```
+
+- LoRA 内核运行时编译需要 `ninja`，它在 `.venv-serving/bin`，所以 PATH 必须包含该目录。端口 8000 被 sshd 占用。
+- 机器设置了 HTTP 代理：访问本地服务的进程须设 `NO_PROXY=127.0.0.1,localhost`，否则返回 502。
+- 评测：`run_reviews --model qwen3.5-9b-extract --url http://127.0.0.1:18090/v1/chat/completions --budget-usd 0 --workers 8`；单卡生成约 120 token/秒，开发集 66 篇约 1 小时，多卡时可每卡一个服务、按稿件分片后合并缓存再整集计分。
+- 训练产物：`/test/Finagent/runs/stage4_extract_v1/`（适配器 `step_0072`、日志 `stage4_extract_v1.log`）。
+- `.venv` 已安装 `langgraph==1.2.15`、`langchain-core==1.6.10`、`langchain-openai==1.7.1`（2026-10-15，阶段 5 编排用，见 `requirements-research.txt`）。

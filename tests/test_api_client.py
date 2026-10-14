@@ -53,6 +53,24 @@ class ApiClientTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             ApiClient('unknown', 1.0, self.cache, send=lambda body: answer())
 
+    def test_local_model_is_free_and_switches_thinking_through_the_template(self):
+        sent = []
+        client = ApiClient('qwen3.5-9b', 0.0, self.cache, url='http://127.0.0.1:8000/v1/chat/completions',
+                           send=lambda body: sent.append(body) or answer())
+        row = client.chat([{'role': 'user', 'content': 'a'}], 8)
+        self.assertEqual(row['cost_usd'], 0.0)
+        self.assertEqual(sent[0]['chat_template_kwargs'], {'enable_thinking': False})
+        self.assertNotIn('thinking', sent[0])
+        with self.assertRaises(ValueError):
+            ApiClient('qwen3.5-9b', 0.0, self.cache, url='https://example.com/v1', send=lambda b: answer())
+
+    def test_extract_local_model_is_free(self):
+        client = ApiClient('qwen3.5-9b-extract', 0.0, self.cache,
+                           url='http://127.0.0.1:8000/v1/chat/completions',
+                           send=lambda body: answer())
+        row = client.chat([{'role': 'user', 'content': 'a'}], 8)
+        self.assertEqual(row['cost_usd'], 0.0)
+
 
 if __name__ == '__main__':
     unittest.main()

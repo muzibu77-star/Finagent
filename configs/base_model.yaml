@@ -1,0 +1,6 @@
+# Base model configuration read by the training entry (src/training/m0_lora_check.py).
+model:
+  repo_id: Qwen/Qwen3.5-9B
+  revision: c202236235762e1c871ad0ccb60c8ee5ba337b9a
+  path: /test/Finagent/models/Qwen3.5-9B/c202236235762e1c871ad0ccb60c8ee5ba337b9a
+  device: cuda:0

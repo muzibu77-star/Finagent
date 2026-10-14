@@ -283,6 +283,10 @@ class Checker:
         if abs(value) >= 10 ** 6:
             return Verdict('unsupported', reason='ratio parts give an implausible percentage')
         shown, evidence = str(round(value, places(claim.stated))), top[1] + bottom[1]
+        if (value < 0) != claim.stated.strip().startswith('-'):
+            # close() compares magnitudes; a ratio of the opposite sign means the
+            # parts were named wrongly or the figure is wrong, never a match.
+            return Verdict('unsupported', None, shown, evidence, 'ratio sign differs from the parts')
         if close(claim.stated, value):
             return Verdict('consistent', None, shown, evidence)
         if close(claim.stated, value, Decimal(1)):
