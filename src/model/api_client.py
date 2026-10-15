@@ -65,9 +65,15 @@ class ApiClient:
             try:
                 # A local server generates long answers slowly under concurrent load.
                 with urlopen(request, timeout=1800 if self.local else 300) as response:
-                    return json.loads(response.read())
+                    payload = json.loads(response.read())
+                # Under load the provider occasionally answers 200 with an error body.
+                if 'choices' in payload and 'usage' in payload:
+                    return payload
+                if attempt == 4:
+                    raise RuntimeError(f"no answer in reply: {str(payload.get('error'))[:200]}")
             except HTTPError as error:
-                if error.code not in (429, 500, 502, 503) or attempt == 4:
+                # 405 comes from the outbound proxy under load, not from the provider.
+                if error.code not in (405, 429, 500, 502, 503) or attempt == 4:
                     raise
             except (OSError, HTTPException):  # dropped connections, timeouts, truncated replies
                 if attempt == 4:

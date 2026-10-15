@@ -25,6 +25,18 @@ class ExtractTest(unittest.TestCase):
         self.assertTrue(matches('同比增长', '营业收入'))
         self.assertTrue(matches('归属于母公司股东权益', '归属于上市公司股东的净资产'))
 
+    def test_total_and_plain_line_items_are_not_each_other(self):
+        # Both are reported with different values, so the "总" decides the item.
+        self.assertFalse(matches('营业收入', '营业总收入'))
+        self.assertFalse(matches('营业总收入', '营业收入'))
+        self.assertFalse(matches('营业成本', '营业总成本'))
+        self.assertFalse(matches('营业总成本', '营业成本'))
+        self.assertTrue(matches('营业总收入', '营业总收入'))
+        # "利润总额" keeps "总额" as one word: dropping the "总" leaves "利润额",
+        # which is not "利润", so the pair stays with the existing noun rule.
+        self.assertTrue(matches('利润总额', '利润'))
+        self.assertTrue(matches('利润', '利润总额'))
+
     def test_quarters_segments_and_own_method_ratios_are_left_to_a_person(self):
         self.assertFalse(checkable('四季度收入'))
         self.assertFalse(checkable('加权平均净资产收益率'))

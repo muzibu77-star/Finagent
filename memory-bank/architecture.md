@@ -21,7 +21,7 @@
 - `src/data/policy_sources.py`：按 `configs/policy_feeds.json` 收集带发布日期的政策文件与统计发布；支持三种列表（新华网活动数据文件、政府网政策数据文件、可配置正则与翻页规则的 HTML 列表）和证监会栏目接口；保存原始网页与按容器标记提取的正文，找不到正文记为失败。
 - `src/data/parse_reports.py`：按下载收据逐份调用 MinerU 解析，校验来源哈希，结果一份一个文件、原子落盘，可断点续跑，失败单独记录；要求已配置 GPU 上的文档模型服务，否则拒绝启动。
 - `src/data/table_map.py`：把版面解析器（MinerU）给出的 HTML 表格中的数值单元格，按位置与数字逐一对回 PDFium 页面文本的字符区间和位置框。PDF 文本层为准：数字不一致的单元格与解析器漏掉的数字分别报告，不做修正。
-- `src/data/table_facts.py`：在映射之上，把每个数字与行标签、列表头、小节、表题、报表日期、单位、币种和合并／母公司口径绑定为候选事实；续表继承上一段的表头与单位。缺单位、续表缺开头、并格与漏识别记入问题清单，缺失字段留空而不猜测。命令行入口 `python -m src.data.table_facts --pdf --middle --output`。
+- `src/data/table_facts.py`：在映射之上，把每个数字与行标签、列表头、小节、表题、报表日期、单位、币种和合并／母公司口径绑定为候选事实；续表继承上一段的表头与单位；版面解析把报表整列挤成一格、映射不出事实的合并报表页，改从 PDF 文本层逐行生成事实（`unit_source='text layer line before table'`）。缺单位、续表缺开头、并格与漏识别记入问题清单，缺失字段留空而不猜测。命令行入口 `python -m src.data.table_facts --pdf --middle --output`。
 - `src/data/library.py`：出处库。`build` 把年报的逐页文本（与 PDFium 返回的完全一致，事实的字符区间以它为准）、表格事实、绑定问题以及政策与统计发布写入一个 SQLite 文件，并核对来源哈希；`--restatement` 可加入人工转写复核过的历史更正案例（原报告页与更正值，后者无位置框）；`Library` 提供只读查询：`find_number`（按书写的数字精确查找事实）、`search_pages`（中文二元词 BM25）与 `page_text`，均可限定发行人和截止日（披露日为日粒度、包含当日）。
 
 ### 核查
@@ -33,7 +33,7 @@
 
 - `src/agent/llm.py`：LangChain `BaseChatModel` 适配器，内部沿用 `ApiClient` 的缓存、计价、预算与本地模型规则（DeepSeek API 或本机 vLLM 均可）。
 - `src/agent/graph.py`：LangGraph 五节点流程 extract（抽取 Agent，只看稿件与科目清单）→ check（确定性核查器）→ investigate（复查 Agent：对核查器交给人工的数字用工具检索与计算，**只能把数字标为不一致、不能判一致**，判“正确”只作提示）→ consistency（稿内一致性，代码；排除季度／分部措辞，按措辞分组）→ revise（修订 Agent：只为核查器判不一致的数字写改写句，代码核对除该数字外逐字不变，否则标“需人工改写”）→ report（工作底稿：每个数字的结论、来源〔核查器／Agent〕、错因、应有值、出处文件页码与字符区间、修改建议或 Agent 依据、模型节点的错误；另有 Markdown 版）。模型节点失败不抛出：抽取失败时全部数字交给人，其他节点失败只记 `errors`。入口 `review_draft()` 与 `python -m src.agent.graph`。稿内一致性节点曾实现，因真实稿件上 0／19 正确于 2026-10-15 移除。
-- `src/agent/single.py`：ReAct 工具 Agent（`create_react_agent`），四个受限工具：`find_number`、`search_pages`（限定发行人与写稿截止日）、`page_text`（拒绝截止日后披露的文件）、`calculate`（AST＋Decimal，无 `eval`）。既是“单 Agent 直接审稿”对照组，也是 investigate 节点的实现。
+- `src/agent/single.py`：ReAct 工具 Agent（`create_react_agent`），四个受限工具：`find_number`、`search_pages`（限定发行人与写稿截止日，只返回片段）、`page_text`（拒绝截止日后披露的文件；可按关键词只返回命中行）、`calculate`（AST＋Decimal，无 `eval`）。既是“单 Agent 直接审稿”对照组，也是 investigate 节点的实现。
 - `src/service/app.py`＋`index.html`：本机审核页面（127.0.0.1:18100，同一时间只跑一篇，参数校验返回 400，底稿 JSON／Markdown 下载）。`src/service/mcp_server.py`：stdio MCP 服务，工具 `check_draft`、`find_number`、`search_pages`、`page_text`。
 
 ### 训练

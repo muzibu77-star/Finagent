@@ -12,8 +12,13 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from src.agent.llm import ApiChatModel, message_payload, answer_message
 from src.agent.single import build_tools, review_draft_single
-from src.data.library import SCHEMA, Library, digits
+from src.data.library import SCHEMA, Library, digits, terms
 from src.model.api_client import ApiClient
+
+# A second page of ``r2024``: a small table with a unit line above it, so the
+# keyword excerpt has a line above and below the hit to show.
+TABLE_PAGE = ('2.1 主要会计数据和财务指标\r\n（人民币百万元）\r\n营业收入 1,745.44 1,600.00\r\n'
+              '营业成本 900.00 850.00\r\n管理费用 300.00 280.00\r\n净利润 200.00 180.00')
 
 
 def build_library(path: Path) -> None:
@@ -27,6 +32,13 @@ def build_library(path: Path) -> None:
                 '2026-03-30', 'h', 1))
     for key in ('r2024', 'r2025'):
         db.execute('INSERT INTO pages VALUES (?, 1, ?)', (key, f'{key}的第1页原文'))
+    db.execute('INSERT INTO pages VALUES (?, 2, ?)', ('r2024', TABLE_PAGE))
+    db.execute('INSERT INTO page_terms VALUES (?, ?, ?)',
+               (' '.join(terms(TABLE_PAGE)), 'r2024', 2))
+    db.execute('INSERT INTO facts (document_id, page, start, end, box, text, digits, row_label, '
+               'column_header, title, unit, scale, scope) VALUES (?, 2, 0, 1, ?, ?, ?, ?, ?, ?, '
+               '?, ?, ?)', ('r2024', json.dumps([]), '900.00', digits('900.00'), '营业成本',
+                            '2024年度', '2.1 主要会计数据和财务指标', '百万元', '1000000', '合并'))
     db.execute('INSERT INTO facts (document_id, page, start, end, box, text, digits, row_label, '
                'column_header, title, unit, scale, scope) VALUES (?, 1, 0, 1, ?, ?, ?, ?, ?, ?, '
                '?, ?, ?)', ('r2024', json.dumps([]), '174,144,069,958.25',
@@ -114,6 +126,29 @@ class MessageTest(unittest.TestCase):
                          '该文件在写稿截止日之后才披露，不能作为依据。')
         self.assertEqual(tools['page_text'].invoke({'document_id': 'nope', 'page': 1}),
                          '没有这份文件。')
+
+    def test_a_keyword_brings_back_its_lines_with_the_page_header(self):
+        tools = self.tools()
+        text = tools['page_text'].invoke({'document_id': 'r2024', 'page': 2,
+                                          'keyword': '营业成本'})
+        self.assertIn('表题：2.1 主要会计数据和财务指标', text)
+        self.assertIn('单位声明：（人民币百万元）', text)
+        self.assertIn('营业收入 1,745.44 1,600.00', text)  # the line above the hit
+        self.assertIn('营业成本 900.00 850.00', text)
+        self.assertIn('管理费用 300.00 280.00', text)  # the line below the hit
+        self.assertNotIn('净利润 200.00', text)
+        missed = tools['page_text'].invoke({'document_id': 'r2024', 'page': 2,
+                                           'keyword': '研发费用'})
+        self.assertIn('未找到“研发费用”', missed)
+        self.assertIn('2.1 主要会计数据和财务指标', missed)  # the first lines of the page
+
+    def test_search_returns_the_file_page_table_and_a_short_snippet(self):
+        hits = json.loads(self.tools()['search_pages'].invoke({'query': '营业成本'}))
+        self.assertEqual([(hit['document_id'], hit['page'], hit['table']) for hit in hits],
+                         [('r2024', 2, '2.1 主要会计数据和财务指标')])
+        self.assertEqual(hits[0]['document'], '年度报告')
+        self.assertIn('营业成本 900.00', hits[0]['snippet'])
+        self.assertLessEqual(len(hits[0]['snippet']), 80)
 
     def test_calculate_uses_decimal_and_refuses_anything_else(self):
         tools = self.tools()

@@ -23,7 +23,8 @@ from langgraph.errors import GraphRecursionError
 from langgraph.prebuilt import create_react_agent
 
 from src.agent.llm import ApiChatModel
-from src.data.library import Library
+from src.data.library import Library, terms
+from src.data.table_facts import UNIT
 from src.model.api_client import ApiClient
 from src.verify.extract import locate, parse
 
@@ -37,9 +38,11 @@ SYSTEM = '''你是证券公司的质控人员，正在核对一篇关于{company
 
 工具（都只能看到发行人 {code} 在写稿截止日 {as_of} 之前披露的文件）：
 - find_number：按数字的书写形式精确查找年报表格中的事实，能看到该数字所在的行标签、列表头与单位；
-- search_pages：按关键词检索年报页面，返回文件、页码与标题；
-- page_text：读某份文件的某一页原文；
+- search_pages：按关键词检索年报页面，只返回文件、页码、表题与命中片段；
+- page_text：读某份文件的某一页，带 keyword 时只返回含该关键词的行与上下各 1 行，并附该页表题与单位声明行；
 - calculate：用 Decimal 计算只含数字与 + - * / ( ) 的算式。
+
+先按点评里写的数字用 find_number 精确查找，查不到再检索页面。
 
 每个数字都必须给出“正确”“错误”或“无法判断”，不要遗漏；查不到依据就写“无法判断”。\
 最后只输出 JSON 数组，每个数字一个对象：\
@@ -57,9 +60,11 @@ INVESTIGATE_SYSTEM = '''你是证券公司的质控人员，正在复核一篇�
 
 工具（都只能看到发行人 {code} 在写稿截止日 {as_of} 之前披露的文件）：
 - find_number：按数字的书写形式精确查找年报表格中的事实，能看到该数字所在的行标签、列表头与单位；
-- search_pages：按关键词检索年报页面，返回文件、页码与标题；
-- page_text：读某份文件的某一页原文；
+- search_pages：按关键词检索年报页面，只返回文件、页码、表题与命中片段；
+- page_text：读某份文件的某一页，带 keyword 时只返回含该关键词的行与上下各 1 行，并附该页表题与单位声明行；
 - calculate：用 Decimal 计算只含数字与 + - * / ( ) 的算式。
+
+先按点评里写的数字用 find_number 精确查找，查不到再检索页面。
 
 列出的每个数字都必须给出“正确”“错误”或“无法判断”，不要遗漏；查不到依据就写“无法判断”。\
 最后只输出 JSON 数组，每个数字一个对象：\
@@ -79,6 +84,54 @@ MEANING = {'正确': 'consistent', '错误': 'inconsistent', '无法判断': 'un
 
 REFUSED = '该文件在写稿截止日之后才披露，不能作为依据。'
 PAGE_CHARS = 8000  # one page of an annual report, long enough for any table
+SNIPPET_CHARS = 80  # one search hit: short enough that a whole page stays out of the context
+
+
+def table_titles(db, document_id: str, page: int) -> list[str]:
+    """The table titles bound to one page, so an excerpt says which table it is."""
+    rows = db.execute('SELECT DISTINCT title FROM facts WHERE document_id = ? AND page = ?'
+                      ' AND title IS NOT NULL ORDER BY title', (document_id, page))
+    return [row['title'] for row in rows]
+
+
+def unit_lines(text: str) -> list[str]:
+    """The lines of a page that state a monetary unit, e.g. "（人民币百万元）"."""
+    return [line.strip() for line in text.splitlines() if UNIT.search(line)]
+
+
+def keyword_lines(text: str, keyword: str) -> str:
+    """Every line that mentions ``keyword`` with one line of context around it.
+
+    Returns an empty string when the page does not mention the keyword, so the
+    caller can report that instead of pretending the page is empty.
+    """
+    lines = text.splitlines()
+    hits = [index for index, line in enumerate(lines) if keyword in line]
+    if not hits:
+        return ''
+    wanted = sorted({index for hit in hits for index in (hit - 1, hit, hit + 1)
+                     if 0 <= index < len(lines)})
+    return '\n'.join(lines[index] for index in wanted)
+
+
+def snippet(text: str, query: str) -> str:
+    """The line of a page that mentions ``query``, cut to ``SNIPPET_CHARS``.
+
+    The whole query is preferred, so a hit shows the words that were searched
+    for; a page that only mentions part of it falls back to the query's terms,
+    because pages and the index tokenise Chinese differently.
+    """
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    for wanted in [query.strip(), *terms(query)]:
+        if not wanted:
+            continue
+        for line in lines:
+            at = line.lower().find(wanted.lower())
+            if at != -1:
+                start = max(0, at - SNIPPET_CHARS // 4)
+                room = SNIPPET_CHARS - (2 if start else 0)
+                return ('……' if start else '') + line[start:start + room]
+    return ''
 
 
 def build_tools(library: Path, code: str, as_of: str) -> list:
@@ -101,13 +154,23 @@ def build_tools(library: Path, code: str, as_of: str) -> list:
 
     @tool
     def search_pages(query: str) -> str:
-        """按关键词检索年报页面（本发行人，截止日前披露）。"""
-        pages = Library(library).search_pages(query, code=code, as_of=as_of)[:5]
-        return json.dumps(pages, ensure_ascii=False) or '没有检索到页面'
+        """按关键词检索年报页面（本发行人，截止日前披露），返回文件、页码、表题与命中片段。"""
+        books = Library(library)
+        found = []
+        for row in books.search_pages(query, code=code, as_of=as_of)[:5]:
+            try:
+                text = books.page_text(row['document_id'], row['page'])
+            except KeyError:
+                continue  # a term hit without page text cannot be read
+            found.append({'document_id': row['document_id'], 'document': row['title'],
+                          'page': row['page'], 'snippet': snippet(text, query),
+                          'table': '；'.join(table_titles(books.db, row['document_id'],
+                                                         row['page']))})
+        return json.dumps(found, ensure_ascii=False) or '没有检索到页面'
 
     @tool
-    def page_text(document_id: str, page: int) -> str:
-        """读某份文件某一页的原文，只能读截止日前已披露的文件。"""
+    def page_text(document_id: str, page: int, keyword: str = '') -> str:
+        """读某份文件某一页；请带 keyword，只返回含该关键词的行与上下各 1 行，并附该页表题与单位声明行，不带 keyword 才返回整页。只能读截止日前已披露的文件。"""
         books = Library(library)
         row = books.db.execute('SELECT published FROM documents WHERE id = ?',
                                (document_id,)).fetchone()
@@ -119,7 +182,15 @@ def build_tools(library: Path, code: str, as_of: str) -> list:
             text = books.page_text(document_id, page)
         except KeyError:
             return '这份文件没有这一页。'
-        return text[:PAGE_CHARS] + ('……' if len(text) > PAGE_CHARS else '')
+        if not keyword:
+            return text[:PAGE_CHARS] + ('……' if len(text) > PAGE_CHARS else '')
+        body = keyword_lines(text, keyword)
+        if not body:
+            return '未找到“{}”。该页前 5 行：\n{}'.format(keyword,
+                                                          '\n'.join(text.splitlines()[:5]))
+        notes = [f'表题：{title}' for title in table_titles(books.db, document_id, page)]
+        notes += [f'单位声明：{line}' for line in unit_lines(text)]
+        return '\n'.join(notes + [body])
 
     @tool
     def calculate(expression: str) -> str:

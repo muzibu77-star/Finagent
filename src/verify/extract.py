@@ -92,6 +92,14 @@ def matches(phrase: str | None, label: str) -> bool:
     if not phrase:
         return False
     phrase, label = norm(phrase), norm(label)
+    # Issuers report "营业总收入" next to "营业收入" (likewise "营业总成本" and
+    # "营业成本") with different values, so a "总" that one name has and the other
+    # lacks makes them different line items.  Names that both carry a "总", or
+    # neither, are left to the rules below.
+    if ('总' in phrase) != ('总' in label):
+        total, plain = (phrase, label) if '总' in phrase else (label, phrase)
+        if total.replace('总', '') == plain:
+            return False
     if phrase in label or label in phrase:
         return True
     for a, b in SYNONYMS:
