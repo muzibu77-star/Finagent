@@ -6,9 +6,9 @@
 
 ```bash
 # 审核页面（需 .env 中的 DEEPSEEK_API_KEY；本机 9B 模型见 environment.md）
-.venv/bin/python -m src.service.app --library data/staged/library_v7/library.sqlite --data-dir runs/web --budget-usd 1
+.venv/bin/python -m src.service.app --library data/staged/library_v8/library.sqlite --data-dir runs/web --budget-usd 1
 # 命令行：对评测集中的一篇稿件生成工作底稿
-.venv/bin/python -m src.agent.graph --library data/staged/library_v7/library.sqlite \
+.venv/bin/python -m src.agent.graph --library data/staged/library_v8/library.sqlite \
   --reviews data/staged/eval_v2/development_reviews.jsonl --review-id <id> --output runs/demo/workpaper.json --budget-usd 0.5
 ```
 

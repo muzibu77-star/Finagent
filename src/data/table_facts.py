@@ -32,6 +32,11 @@ DECLARED = re.compile(r'除[^。\n]{0,14}(?:注明|说明|标明|指明|列明)[
 # The sentence scopes itself to the statements, so it is used only for a table whose title
 # names one; unlike DECLARED it never binds a note table.
 STATEMENT_UNIT = re.compile(r'报表(?:中)?(?:的)?单位(?:均)?为[^。\n\d]{0,8}?(百万元|千元|万元|亿元|元)')
+# A note may name the unit of the statements themselves after the statements, e.g.
+# "编制本财务报表所采用的货币均为人民币，除有特别说明外，均以人民币千元为单位表示"
+# (比亚迪 2023, page 153, for the statements from page 138).  The page break and the
+# full stop bound the sentence, so a note about something else keeps its own unit.
+NOTES_UNIT = re.compile(r'报表[^。\n]{0,60}?(?:单位(?:均)?为|以)[^。\n\d]{0,16}?(百万元|千元|万元|亿元|元)')
 # "单位：股" and "单位：人" are counting units without a monetary scale.  "编制单位：" names
 # the entity that prepared the statement, not a unit, and must not be read as one.
 OTHER_UNIT = re.compile(r'(?<!编制)(?<!填报)单位\s*[:：]\s*([^\s:：，,。)）(（\d]{1,6})')
@@ -141,6 +146,28 @@ def declared_units(document) -> list[tuple[int, dict, bool]]:
                     'currency': currency.group() if currency else None,
                     'unit_source': f'statement on page {index + 1}'}, statements_only))
     return found
+
+
+def notes_declared_unit(document) -> tuple[dict | None, bool]:
+    """The unit a note declares for the statements, and whether two of them clash.
+
+    The statements may stand before the note that names their unit, so this is read
+    for a statement table that states no unit of its own, whatever its page.  Two
+    different units leave the statements alone rather than pick one.
+    """
+    found = []
+    for index in range(len(document)):
+        textpage = document[index].get_textpage()
+        text = re.sub(r'[ \t\r]', '', textpage.get_text_bounded())
+        textpage.close()
+        for match in NOTES_UNIT.finditer(text):
+            currency = CURRENCY.search(match.group())
+            found.append({'unit': match.group(1), 'scale': SCALES[match.group(1)],
+                          'currency': currency.group() if currency else None,
+                          'unit_source': 'statement unit declared in notes'})
+    if len({fields['unit'] for fields in found}) == 1:
+        return found[0], False
+    return None, bool(found)
 
 
 def statement_table(title: str | None) -> bool:
@@ -401,8 +428,9 @@ def extract(document, middle: dict) -> dict:
 
     A table's unit comes, in order, from the line before it, its own header or
     caption, the table it continues, and the latest document-wide statement on
-    or before its page.  ``unit_source`` records which; percentage columns
-    carry ``%`` instead of the monetary unit.
+    or before its page; a statement table that still states none takes the unit
+    a note declares for the statements.  ``unit_source`` records which;
+    percentage columns carry ``%`` instead of the monetary unit.
 
     A statement page on which the layout parser mapped no number is read from
     the same page's text layer instead, row by row, and those facts record it
@@ -410,6 +438,7 @@ def extract(document, middle: dict) -> dict:
     """
     facts, problems = [], []
     declared = declared_units(document)
+    notes, notes_clash = notes_declared_unit(document)
     previous = None
     for pdf_page, before, block, mapping in parsed_tables(document, middle):
         cells = mapping['cells']
@@ -447,6 +476,12 @@ def extract(document, middle: dict) -> dict:
             stated = declared_unit(declared, pdf_page, meta['title'])
             if stated:
                 meta = {**meta, **stated}
+            elif statement_table(meta['title']) and notes:
+                # A note may state the unit of the statements after the statements.
+                meta = {**meta, **notes}
+            elif statement_table(meta['title']) and notes_clash:
+                problems.append({'pdf_page': pdf_page,
+                                 'problem': 'conflicting statement units declared in notes'})
             else:
                 problems.append({'pdf_page': pdf_page, 'problem': 'no unit for table',
                                  'title': meta['title']})
@@ -486,6 +521,11 @@ def extract(document, middle: dict) -> dict:
                     if stated:
                         meta.update(stated)
                         break
+                if meta['unit'] is None and statement_table(found[0]) and notes_clash:
+                    problems.append({'pdf_page': pdf_page,
+                                     'problem': 'conflicting statement units declared in notes'})
+                elif meta['unit'] is None and statement_table(found[0]) and notes:
+                    meta.update(notes)
                 placed = grid(cells)
                 columns = column_headers(placed, header_rows(cells))
                 table, _ = rows_to_facts(placed, header_rows(cells), columns,

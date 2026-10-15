@@ -2,8 +2,9 @@ import unittest
 
 from src.data.table_facts import (DECLARED, STATEMENT_UNIT, column_headings, column_headers,
                                    context, declared_unit, declared_units, grid, header_line,
-                                   header_rows, label_unit, note_number, rows_to_facts, scope,
-                                   statement_table, statement_title, stated_unit, text_layer_cells)
+                                   header_rows, label_unit, note_number, notes_declared_unit,
+                                   rows_to_facts, scope, statement_table, statement_title,
+                                   stated_unit, text_layer_cells)
 from src.data.table_map import NumberSpan, table_cells
 
 
@@ -97,6 +98,39 @@ class TableFactsTest(unittest.TestCase):
         self.assertEqual(declared_unit([declared[0]], 9, '（1） 企业集团的构成')['unit'], '千元')
         self.assertIsNone(declared_unit([declared[1]], 9, '（1） 企业集团的构成'))
         self.assertEqual(declared_unit(declared, 9, '7、股东权益变动表')['unit'], '元')
+
+    def test_a_note_states_the_unit_of_the_statements_after_them(self):
+        # 比亚迪 2023 (002594-1219412018) declares it on page 153, after the statements
+        # that start on page 138 and state no unit of their own.
+        unit, clash = notes_declared_unit(
+            [Page('本公司记账本位币和编制本财务报表所采用的货币均为人民币，'
+                  '除有特别说明外，均以人民币千元为单位表示。')])
+        self.assertEqual((unit['unit'], unit['scale'], unit['currency'], unit['unit_source']),
+                         ('千元', '1000', '人民币', 'statement unit declared in notes'))
+        self.assertFalse(clash)
+        # A statement of the same unit twice keeps the declaration readable.
+        again, clash = notes_declared_unit(
+            [Page('财务附注中报表的单位为：千元'),
+             Page('编制本财务报表所采用的货币均为人民币，除有特别说明外，'
+                  '均以人民币千元为单位表示。')])
+        self.assertEqual(again['unit'], '千元')
+        self.assertFalse(clash)
+
+    def test_two_different_statement_units_in_notes_are_left_alone(self):
+        unit, clash = notes_declared_unit([Page('编制本财务报表以人民币千元为单位表示。'),
+                                           Page('报表的单位为：元')])
+        self.assertIsNone(unit)
+        self.assertTrue(clash)
+
+    def test_a_unit_statement_that_does_not_name_the_statements_is_not_read(self):
+        for sentences in (['除特别注明外，金额单位为人民币元'],
+                          ['币报表折算差额及采用远期汇率交易产品对冲汇率风险的美元借款'
+                           '和美元应付债券未包括在内'],
+                          ['入本集团合并报表及出售汽车之家时带来的一次性损益，本公司发行的'
+                           '美元、港元可转换债券的转股权价值重估损益等合']):
+            unit, clash = notes_declared_unit([Page(sentence) for sentence in sentences])
+            self.assertIsNone(unit)
+            self.assertFalse(clash)
 
     def test_a_preparing_entity_is_not_a_unit(self):
         # "编制单位：" names the issuer, not a unit (迈瑞医疗 2023, 300760-1219856065, p. 224).
