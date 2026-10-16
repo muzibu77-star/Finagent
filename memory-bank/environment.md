@@ -94,7 +94,8 @@ nohup setsid .venv/bin/python -m src.data.parse_reports --output-dir data/staged
 | `data/staged/seed_claims_v2.jsonl`、`data/staged/eval_v2/`（v1 保留作历史） | 种子断言与冻结的评测集（含 `lock.json`）；模型稿件的原始输出与 API 应答缓存在 `artifacts/stage2_drafts_v1/`（v2 目录是同一批应答在新资料库上的重判），重跑命中缓存不再计费 |
 | `data/staged/eval_v2_labels/` | 点评数字的逐条核实标注（Codex，2026-10-14）。用户 2026-10-14 决定其中的标注文件、盲审记录、出处库问题清单与汇总进 Git（`git add -f`，因为 `data/` 默认被忽略）；`evidence/` 下的年报页面截图不进 Git。备份在 `/test/Finagent/backups/eval_v2_labels_20261014.tar.gz` |
 | `.env` | DeepSeek API 密钥（`DEEPSEEK_API_KEY`），权限 600，不进 Git |
-| `data/staged/library_v8/`（当前默认；v7 为验收后改进评测所用，v5 为阶段 3—6 评测所用，v3 保留，Codex 标注的事实编号指向 v3） | 出处库 `library.sqlite`（约 438 MB）与收据；由 `python -m src.data.library --restatement configs/jd_restatement.json --restatement configs/jd_restatement_xinlun.json --output-dir <新目录>` 从上面各项重建，约 6 分钟，不需要 GPU |
+| `data/staged/library_v9/`（当前默认，2026-10-16 起，“本银行”列标为母公司口径；v8 为 T18 评测所用，v7 为验收后改进评测所用，v5 为阶段 3—6 评测所用，v3 保留，Codex 标注的事实编号指向 v3） | 出处库 `library.sqlite`（约 438 MB）与收据；由 `python -m src.data.library --restatement configs/jd_restatement.json --restatement configs/jd_restatement_xinlun.json --output-dir <新目录>` 从上面各项重建，约 6 分钟，不需要 GPU |
+| `/test/Finagent/tools/pw/`、`/test/Finagent/tools/pw-browsers/` | 页面截图检查用的无头浏览器（用户 2026-10-16 批准）：独立 venv 中的 playwright 1.47.0 与 Chromium，不属于项目依赖。系统另用 apt 装了 Chromium 运行库与 `fonts-noto-cjk`。用法：`PLAYWRIGHT_BROWSERS_PATH=/test/Finagent/tools/pw-browsers /test/Finagent/tools/pw/bin/python <脚本>` |
 
 原始 PDF 仅作本地研究与必要引用，不随仓库再分发。移机时须一并恢复上表资产，仅 clone 仓库不能运行。
 

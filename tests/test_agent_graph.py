@@ -12,10 +12,11 @@ from langchain_core.language_models.fake_chat_models import FakeMessagesListChat
 from langchain_core.messages import AIMessage
 
 from src.agent.llm import ApiChatModel
-from src.agent.graph import (build_graph, handover, numbers_in, review_draft, sentence_at,
-                             workpaper_markdown)
+from src.agent.graph import (build_graph, handover, numbers_in, review_draft, review_events,
+                             sentence_at, tool_calls, workpaper_markdown)
+from src.agent.recheck import EXPECTED_VALUE, SAME_VALUE
 from src.data.library import SCHEMA, digits
-from src.model.api_client import ApiClient
+from src.model.api_client import ApiClient, pieces
 from src.verify.checker import Checker
 from src.verify.extract import PROMPT, line_items
 
@@ -70,6 +71,13 @@ def agent(items: list[dict]):
 
     investigate.calls = calls
     return investigate
+
+
+def cited(key: int, text: str, start: int) -> dict:
+    """One ``find_number`` result as a run records it, for a stubbed investigate node."""
+    return {'id': key, 'document_id': 'r2024', 'page': 1, 'start': start, 'end': start + 1,
+            'text': text, 'unit': '元', 'scale': '1', 'row_label': '一、营业收入',
+            'column_header': '2024年度', 'title': '合并利润表'}
 
 
 def run_investigated(investigator, *replies: str) -> dict:
@@ -211,6 +219,169 @@ class InvestigateTest(unittest.TestCase):
         self.assertIn('unparsable investigate answer', paper['errors'][0])
 
 
+class BackfillTest(unittest.TestCase):
+    """The facts the agent's own lookups turned up, beside the verdict they never touch.
+
+    The stubbed node answers one number the checker handed to a person (3.20亿元)
+    and returns the facts its ``find_number`` calls would have read: the draft's
+    figure, or the value the answer expects, as the tables write them in 元.
+    """
+
+    def rows(self, paper: dict) -> dict[int, dict]:
+        return {row['start']: row for row in paper['numbers']}
+
+    def one(self, item: dict, facts: list[dict]) -> dict:
+        def fake(draft: dict, handed: list[dict]) -> dict:
+            return {'items': [item], 'facts': facts, 'answer': ''}
+
+        return run_investigated(fake, json.dumps(ITEMS, ensure_ascii=False), REVISION)
+
+    def test_a_wrong_number_carries_the_fact_with_the_value_it_expects(self):
+        paper = self.one({'number': '3.20', 'occurrence': 1, 'verdict': '错误',
+                          'expected': '3.10亿元', 'basis': 'x'},
+                         [cited(7, '310,000,000.00', 40)])
+        row = self.rows(paper)[47]
+        self.assertEqual((row['verdict'], row['source']), ('inconsistent', 'agent'))
+        fact = row['agent']['evidence'][0]
+        self.assertEqual((fact['id'], fact['page'], fact['start'], fact['end']),
+                         (7, 1, 40, 41))
+        self.assertEqual((fact['text'], fact['unit'], fact['mark']),
+                         ('310,000,000.00', '元', EXPECTED_VALUE))
+        self.assertIn('原文应有值 1 条', workpaper_markdown(paper))
+        self.assertEqual(paper['summary']['agent_flagged'], 1)
+
+    def test_a_hint_carries_the_fact_with_the_drafted_number(self):
+        paper = self.one({'number': '3.20', 'occurrence': 1, 'verdict': '正确'},
+                         [cited(7, '320,000,000.00', 40)])
+        row = self.rows(paper)[47]
+        self.assertEqual((row['verdict'], row['source']), ('unsupported', 'checker'))
+        self.assertEqual([item['mark'] for item in row['agent']['evidence']], [SAME_VALUE])
+        self.assertEqual(paper['summary']['agent_hint_consistent'], 1)
+        self.assertIn('Agent 认为一致，仍需人工确认（原文中有同值，请核对科目 1 条）',
+                      workpaper_markdown(paper))
+
+    def test_the_attached_facts_change_no_verdict(self):
+        item = {'number': '3.20', 'occurrence': 1, 'verdict': '错误', 'expected': '3.20亿元',
+                'basis': '某公司2024年年报第1页：净利润320,000,000.00元'}
+        plain = self.one(item, [])
+        backed = self.one(item, [cited(7, '320,000,000.00', 40), cited(8, '1,000.00', 60)])
+        self.assertEqual([(row['start'], row['verdict'], row['source'])
+                          for row in plain['numbers']],
+                         [(row['start'], row['verdict'], row['source'])
+                          for row in backed['numbers']])
+        self.assertEqual(plain['summary'], backed['summary'])
+        self.assertEqual(self.rows(plain)[47]['agent'],
+                         {'verdict': 'inconsistent', 'expected': '3.20亿元',
+                          'basis': '某公司2024年年报第1页：净利润320,000,000.00元'})
+        self.assertNotIn(SAME_VALUE, workpaper_markdown(plain))
+
+    def test_a_number_no_fact_carries_gets_no_evidence(self):
+        paper = self.one({'number': '3.20', 'occurrence': 1, 'verdict': '正确'},
+                         [cited(7, '321,000,000.00', 40)])
+        self.assertNotIn('evidence', self.rows(paper)[47]['agent'])
+
+    def test_a_ratio_is_not_searched_at_all(self):
+        paper = self.one({'number': '3.20', 'occurrence': 1, 'verdict': '正确'},
+                         [cited(7, '3.20', 40)])
+        self.assertNotIn('evidence', self.rows(paper)[47]['agent'])
+
+    def test_an_investigator_that_reports_no_facts_keeps_the_older_shape(self):
+        def fake(draft: dict, handed: list[dict]) -> dict:
+            return {'items': [{'number': '3.20', 'occurrence': 1, 'verdict': '正确'}],
+                    'answer': ''}
+
+        paper = run_investigated(fake, json.dumps(ITEMS, ensure_ascii=False), REVISION)
+        self.assertEqual(self.rows(paper)[47]['agent'], {'verdict': 'consistent',
+                                                         'expected': None, 'basis': None})
+
+
+class ReviewEventsTest(unittest.TestCase):
+    """The progress events of one run: one per node, in order, with its highlight."""
+
+    WRONG = [{'number': '3.20', 'occurrence': 1, 'verdict': '错误', 'expected': '3.10',
+              'basis': '某公司2024年年报第1页：第四季度净利润310,000,000元'}]
+    MESSAGES = [{'type': 'ai', 'content': '', 'tool_calls': [
+        {'name': 'find_number', 'args': {'text': '3.10'}}]},
+        {'type': 'tool', 'content': '[{"text": "310,000,000.00", "unit": "元"}]',
+         'tool_call_id': 'a'},
+        {'type': 'ai', 'content': '[]'}]
+
+    def events(self, items: list[dict] | None = None,
+               messages: list[dict] | None = None) -> list[dict]:
+        def stub(draft: dict, handed: list[dict]) -> dict:
+            answer = items if items is not None else self.WRONG
+            return {'items': answer, 'answer': json.dumps(answer, ensure_ascii=False),
+                    'messages': messages or [],
+                    'facts': [cited(7, '310,000,000.00', 100)]}
+
+        llm = FakeMessagesListChatModel(responses=[
+            AIMessage(content=json.dumps(ITEMS, ensure_ascii=False)), AIMessage(content=REVISION)])
+        return list(review_events(build_graph(build(), llm, investigator=stub), dict(DRAFT)))
+
+    def test_one_event_per_node_in_the_order_the_nodes_run(self):
+        events = self.events()
+        self.assertEqual([event['node'] for event in events],
+                         ['extract', 'check', 'investigate', 'revise', 'report'])
+        self.assertEqual([event['label'] for event in events],
+                         ['抽取 Agent', '核查器', '复查 Agent', '修订 Agent', '底稿'])
+        for event in events:
+            self.assertRegex(event['at'], r'^\d\d:\d\d:\d\d$')
+            self.assertGreaterEqual(event['seconds'], 0.0)
+
+    def test_each_event_carries_the_highlight_of_its_node(self):
+        first, second, third, fourth, last = self.events()
+        self.assertEqual(first['detail']['extracted'], 3)
+        self.assertEqual(second['detail']['conclusions'], {
+            '一致': 1, '不一致': 1, '无依据': 1, '存疑': 0, '抽取遗漏需人工': 0})
+        self.assertEqual({key: third['detail'][key] for key in ('handed', 'judged', 'flagged')},
+                         {'handed': 1, 'judged': 1, 'flagged': 1})
+        self.assertEqual(third['detail']['tools'], [])
+        self.assertEqual({key: fourth['detail'][key] for key in ('advised', 'accepted')},
+                         {'advised': 1, 'accepted': 1})
+        self.assertEqual(last['detail'], {'numbers': 3})
+
+    def test_each_event_carries_the_entries_a_replay_needs(self):
+        first, second, third, fourth, _ = self.events()
+        self.assertEqual([entry['start'] for entry in first['detail']['items']], [9, 29, 47])
+        self.assertEqual([entry['number'] for entry in first['detail']['items']],
+                         ['1,745.44', '1,741.44', '3.20'])
+        self.assertEqual([entry['label'] for entry in first['detail']['items']],
+                         ['营业收入', '营业收入', '净利润'])
+        self.assertEqual([entry['verdict'] for entry in second['detail']['numbers']],
+                         ['inconsistent', 'consistent', 'unsupported'])
+        self.assertEqual([entry['text'] for entry in third['detail']['numbers']], ['3.20亿元'])
+        self.assertEqual(third['detail']['numbers'][0]['verdict'], 'inconsistent')
+        self.assertEqual(third['detail']['numbers'][0]['evidence'][0]['mark'],
+                         '原文应有值')
+        self.assertEqual([entry['sentence'] for entry in fourth['detail']['numbers']],
+                         ['2024年营业收入1,745.44亿元'])
+        self.assertEqual([entry['accepted'] for entry in fourth['detail']['numbers']], [True])
+        self.assertEqual(fourth['detail']['numbers'][0]['rewritten'],
+                         '2024年营业收入1,741.44亿元')
+
+    def test_the_agent_event_lists_the_tool_calls_of_the_run(self):
+        events = self.events(messages=self.MESSAGES)
+        self.assertEqual(events[2]['detail']['tools'],
+                         [{'name': 'find_number', 'args': {'text': '3.10'},
+                           'result': '[{"text": "310,000,000.00", "unit": "元"}]'}])
+
+    def test_a_number_the_checker_settles_is_not_counted_as_handed_over(self):
+        events = self.events(items=[])
+        self.assertEqual(events[2]['detail']['handed'], 1)
+
+    def test_only_the_last_event_carries_the_workpaper(self):
+        events = self.events()
+        self.assertEqual(['workpaper' in event for event in events], [False] * 4 + [True])
+        self.assertEqual(len(events[4]['workpaper']['numbers']), 3)
+
+    def test_a_tool_result_longer_than_a_trace_keeps_is_cut(self):
+        calls = tool_calls([{'type': 'ai', 'content': '', 'tool_calls': [
+            {'name': 'search_pages', 'args': {'query': '研发'}}]},
+            {'type': 'tool', 'content': 'x' * 200, 'tool_call_id': 'a'}])
+        self.assertEqual(calls, [{'name': 'search_pages', 'args': {'query': '研发'},
+                                  'result': 'x' * 160 + '…'}])
+
+
 def library_file(directory: str) -> Path:
     """The little ``build()`` library as a file, as ``review_draft`` opens it."""
     path = Path(directory) / 'library.sqlite'
@@ -266,6 +437,7 @@ class ReviewDraftModelTest(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.library = library_file(self.directory.name)
         self.bodies: list[dict] = []
+        self.streams: list[dict] = []
 
     def tearDown(self):
         self.directory.cleanup()
@@ -280,8 +452,17 @@ class ReviewDraftModelTest(unittest.TestCase):
     def patched(self):
         """Review the draft through real clients whose transport is stubbed."""
         def factory(model, budget, cache, url=None):
-            return ApiClient(model, budget, Path(cache), url=url, send=self.send)
+            return ApiClient(model, budget, Path(cache), url=url, send=self.send,
+                             stream=self.stream)
         return mock.patch('src.agent.graph.ApiClient', side_effect=factory)
+
+    def stream(self, body: dict, on_delta) -> dict:
+        """The stubbed streaming transport: one answer, reported as it is written."""
+        self.streams.append(body)
+        payload = self.send(body)
+        for piece in pieces(payload['choices'][0]['message']['content']):
+            on_delta(piece)
+        return payload
 
     def review(self, **kwargs) -> dict:
         arguments = dict(library=self.library, model='qwen3.5-9b-extract',
@@ -305,6 +486,7 @@ class ReviewDraftModelTest(unittest.TestCase):
         digest = hashlib.sha256(json.dumps(body, sort_keys=True, ensure_ascii=False)
                                 .encode()).hexdigest()
         self.assertEqual(self.bodies[0], body)  # exactly the request the old code sent
+        self.assertEqual(self.streams, [])  # 没有观察者时不开流式
         self.assertEqual(sorted(path.name for path in Path(self.directory.name).iterdir()
                                 if path.name.startswith('api_cache')), ['api_cache.jsonl'])
         self.assertIn(digest, [json.loads(line)['request_sha256']
@@ -312,6 +494,64 @@ class ReviewDraftModelTest(unittest.TestCase):
         self.assertEqual({json.loads(line)['model'] for line in extract.read_text().splitlines()},
                          {'qwen3.5-9b-extract'})
         self.assertEqual(paper['summary']['inconsistent'], 1)
+
+    @staticmethod
+    def investigate(draft: dict, numbers: list[dict], *, library, model, url, budget_usd,
+                    cache, on_call=None) -> dict:
+        """A stubbed review agent: one lookup, one conclusion about ``3.20亿元``."""
+        if on_call is not None:
+            on_call('find_number', {'text': '3.10'}, '[{"text": "310,000,000.00"}]')
+        items = [{'number': '3.20', 'occurrence': 1, 'verdict': '错误', 'expected': '3.10',
+                  'basis': '某公司2024年年报第1页'}]
+        return {'items': items, 'answer': json.dumps(items, ensure_ascii=False), 'facts': [],
+                'tool_calls': 1, 'usage': {}, 'messages': []}
+
+    def test_the_agent_reports_its_tool_calls_and_then_its_conclusions(self):
+        seen: list[dict] = []
+        with mock.patch('src.agent.graph.investigate_draft', side_effect=self.investigate), \
+                self.patched():
+            paper = self.review(on_event=seen.append, investigate=True)
+        self.assertEqual([event for event in seen if event.get('event') == 'tool'],
+                         [{'event': 'tool', 'name': 'find_number', 'args': {'text': '3.10'},
+                           'result': '[{"text": "310,000,000.00"}]'}])
+        agents = [event for event in seen if event.get('event') == 'agent']
+        self.assertEqual([[event[key] for key in ('start', 'text', 'verdict', 'expected')]
+                          for event in agents], [[47, '3.20亿元', 'inconsistent', '3.10']])
+        self.assertIn('Agent 认为有误', agents[0]['note'])
+        self.assertEqual(paper['summary']['agent_flagged'], 1)
+        self.assertEqual(paper['numbers'][2]['source'], 'agent')
+        # 底稿的 trace 明细也带着这次结论，回放不依赖过程事件
+        detail = [event for event in paper['trace'] if event['node'] == 'investigate'][0]['detail']
+        self.assertEqual([entry['start'] for entry in detail['numbers']], [47])
+
+    def test_a_review_returns_the_workpaper_plus_its_trace(self):
+        with self.patched():
+            paper = self.review()
+        trace = paper.pop('trace')
+        self.assertEqual([event['node'] for event in trace],
+                         ['extract', 'check', 'revise', 'report'])
+        self.assertEqual(paper.pop('models'), {'extract': 'qwen3.5-9b-extract',
+                                               'agent': 'qwen3.5-9b-extract'})
+        # apart from the trace and the models, the workpaper of the same run without events
+        self.assertEqual(set(paper), {'review', 'text', 'numbers', 'errors', 'summary'})
+        self.assertEqual(paper['summary'], {'numbers': 3, 'consistent': 1, 'inconsistent': 1,
+                                            'unsupported': 1, 'ambiguous': 0, 'missed': 0,
+                                            'agent_flagged': 0, 'agent_hint_consistent': 0})
+        self.assertEqual([row['verdict'] for row in paper['numbers']],
+                         ['inconsistent', 'consistent', 'unsupported'])
+
+    def test_the_streamed_events_are_the_trace_of_the_workpaper(self):
+        seen: list[dict] = []
+        with self.patched():
+            paper = self.review(on_event=seen.append)
+        # 边跑边推的过程事件也在流里，但底稿的 trace 只留每个节点的汇总事件。
+        self.assertEqual([event for event in seen if event.get('node')], paper['trace'])
+        self.assertEqual(''.join(event['text'] for event in seen
+                                 if event.get('event') == 'delta'),
+                         json.dumps(ITEMS, ensure_ascii=False))
+        self.assertEqual([event['event'] for event in seen
+                          if not event.get('node') and event['event'] != 'delta'],
+                         ['item', 'item', 'item', 'check', 'check', 'check', 'revise'])
 
     def test_the_agent_model_keeps_its_own_cache(self):
         directory = Path(self.directory.name)

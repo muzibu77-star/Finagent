@@ -5,42 +5,145 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>研报点评预审</title>
 <style>
-  :root { color-scheme: light; }
+  :root { color-scheme: light; --line: #d0d7de; --muted: #57606a; --focus: #0969da; }
   body { font: 14px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
-         margin: 0 auto; max-width: 1080px; padding: 24px; color: #1f2328; }
-  h1 { font-size: 20px; margin: 0 0 16px; }
+         margin: 0 auto; max-width: 1600px; padding: 16px 24px; color: #1f2328;
+         background: #fff; }
+  h1 { font-size: 20px; margin: 0; }
+  h2 { font-size: 15px; margin: 0 0 8px; }
+  #bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 12px; }
+  #bar select { width: auto; max-width: 520px; }
+  details.box { border: 1px solid var(--line); border-radius: 6px; padding: 8px 16px;
+                margin-bottom: 12px; }
+  details.box > summary { cursor: pointer; font-weight: 600; }
   form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;
-         border: 1px solid #d0d7de; border-radius: 6px; padding: 16px; }
+         padding: 12px 0 4px; }
   label { display: block; font-weight: 600; margin-bottom: 4px; }
   select, input, textarea, button { font: inherit; width: 100%; box-sizing: border-box;
-         padding: 6px 8px; border: 1px solid #d0d7de; border-radius: 6px; background: #fff; }
+         padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
   textarea { min-height: 220px; resize: vertical; }
   .wide { grid-column: 1 / -1; }
   button { background: #1f6feb; color: #fff; border-color: #1f6feb; font-weight: 600;
            cursor: pointer; padding: 8px; }
   button[disabled] { opacity: .6; cursor: progress; }
-  #status { min-height: 22px; color: #57606a; }
+  button.plain { background: #f6f8fa; color: #1f2328; border-color: var(--line);
+                 font-weight: 400; width: auto; padding: 4px 10px; }
+  #status { min-height: 22px; color: var(--muted); margin: 0 0 8px; }
   #errors { display: none; border: 1px solid #f85149; background: #ffebe9; color: #a40e26;
-            border-radius: 6px; padding: 10px 12px; margin: 16px 0; white-space: pre-wrap; }
-  #summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
-  #summary span { border: 1px solid #d0d7de; border-radius: 999px; padding: 2px 10px; }
-  #draft { border: 1px solid #d0d7de; border-radius: 6px; padding: 12px;
-           white-space: pre-wrap; margin-bottom: 16px; }
-  table { border-collapse: collapse; width: 100%; }
-  th, td { border: 1px solid #d0d7de; padding: 6px 8px; text-align: left; vertical-align: top; }
-  th { background: #f6f8fa; }
-  tr.flash { background: #fff8c5; }
-  .num { cursor: pointer; border-radius: 3px; padding: 0 2px; }
+            border-radius: 6px; padding: 10px 12px; margin: 12px 0; white-space: pre-wrap; }
+  #summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+  #summary span { border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; }
+  #summary .progress { border-color: var(--focus); color: var(--focus); font-weight: 600; }
+  #flowbox { margin: 0 0 12px; }
+  #flow { display: flex; flex-wrap: wrap; gap: 8px; }
+  .stage { position: relative; flex: 1 1 0; min-width: 150px; border: 1px solid var(--line);
+           border-radius: 6px; padding: 8px 10px; background: #fff; }
+  .stage-name { font-weight: 600; }
+  .stage-status { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .stage-detail { font-size: 13px; margin-top: 4px; }
+  .stage.running { border-color: var(--focus); }
+  .stage.running .stage-status { color: var(--focus); font-weight: 600; }
+  .stage.running::after { content: ""; position: absolute; inset: -2px; border-radius: 8px;
+           border: 2px solid var(--focus); animation: pulse 1.1s ease-in-out infinite;
+           pointer-events: none; }
+  @keyframes pulse { 0%, 100% { opacity: .15 } 50% { opacity: 1 } }
+  .stage.done { background: #f6f8fa; }
+  .stage.done .stage-status { color: #1a7f37; }
+  .stage-tools ol { margin: 4px 0 0 18px; padding: 0; font-size: 12px; }
+  .stage-tools li { margin-bottom: 4px; }
+  .stage-tools code { background: #fff; border: 1px solid var(--line); border-radius: 3px;
+                      padding: 0 3px; }
+  #process { display: flex; flex-direction: column; height: 100%; }
+  /* 作者样式里的 display 盖过 hidden 属性自带的 display:none，过程面板与视图得自己兜底，
+     否则运行前后都留在右栏，把证据视图挤出可视区。 */
+  #process[hidden], #view[hidden] { display: none; }
+  #proc-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+               font-weight: 600; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+  #proc-head .meta { font-weight: 400; }
+  #proc-raw { font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+              background: #f6f8fa; border: 1px solid var(--line); border-radius: 6px;
+              padding: 8px; margin: 6px 0 10px; max-height: 34vh; overflow: auto;
+              white-space: pre-wrap; word-break: break-all; }
+  #proc-body { font-size: 13px; }
+  .proc-sep { margin: 10px 0 4px; font-weight: 600; color: var(--muted); }
+  .proc-sep:first-child { margin-top: 0; }
+  .proc-row { padding: 3px 0 3px 8px; border-left: 2px solid var(--line); margin-bottom: 3px; }
+  .proc-row.item { border-color: #8250df; }
+  .proc-row.check { border-color: var(--focus); }
+  .proc-row.tool { border-color: #1a7f37; }
+  .proc-row.agent { border-color: #a40e26; }
+  .proc-row.revise { border-color: #9a6700; }
+  .proc-row code { background: #f6f8fa; border: 1px solid var(--line); border-radius: 3px;
+                   padding: 0 3px; }
+  .proc-row del { color: #a40e26; }
+  .proc-row mark { background: #dafbe1; }
+  .proc-row .meta { color: var(--muted); font-size: 12px; }
+  #flow-actions { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; }
+  #flow-actions select { width: auto; }
+  #flow-note { color: var(--muted); font-size: 12px; }
+  .legend { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+  .legend span { margin-right: 8px; }
+  #view { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 16px; }
+  #left { flex: 1 1 50%; min-width: 0; }
+  #right { flex: 1 1 50%; min-width: 0; position: sticky; top: 8px;
+           height: calc(100vh - 16px); overflow: auto; border: 1px solid var(--line);
+           border-radius: 6px; padding: 12px; box-sizing: border-box; }
+  #draft { border: 1px solid var(--line); border-radius: 6px; padding: 12px 16px;
+           white-space: pre-wrap; line-height: 2; font-size: 15px; }
+  .num { cursor: pointer; border-radius: 3px; padding: 1px 2px; }
+  .num.handover { outline: 1px dashed #9a6700; }
+  .num.pending { color: #1f2328; }
+  .num.extracted { border-bottom: 2px solid #8250df; }
+  .num .agentmark { font-size: 10px; font-weight: 700; color: #a40e26; margin-left: 2px; }
+  .num.selected { outline: 2px solid var(--focus); outline-offset: 1px; }
+  .num.done::after { content: "✓"; color: var(--focus); font-size: 11px; vertical-align: super; }
   .consistent { background: #dafbe1; }
-  .inconsistent { background: #ffebe9; }
-  .unsupported { background: #fff1e5; }
-  .ambiguous { background: #fff8c5; }
-  .missed { background: #eaeef2; }
+  .inconsistent { background: #ffcecb; }
+  .unsupported { background: #ffe2c2; }
+  .ambiguous { background: #fff1a8; }
+  .missed { background: #e1e4e8; }
+  .badge { border-radius: 3px; padding: 0 6px; font-weight: 600; }
+  .head { display: flex; justify-content: space-between; align-items: center; gap: 8px;
+          flex-wrap: wrap; }
+  .head .number { font-size: 18px; font-weight: 600; }
+  .nav { display: flex; gap: 6px; }
+  .sentence { background: #f6f8fa; border-radius: 6px; padding: 6px 10px; margin: 8px 0; }
+  .sentence mark { background: #fff1a8; }
+  .why div { margin: 2px 0; }
+  .agent { color: var(--muted); margin-top: 4px; }
+  .feedback { display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+              margin: 10px 0; padding: 8px; background: #f6f8fa; border-radius: 6px; }
+  .feedback button { width: auto; padding: 4px 12px; background: #fff; color: #1f2328;
+                     border-color: var(--line); font-weight: 600; }
+  .feedback button.chosen { background: var(--focus); color: #fff; border-color: var(--focus); }
+  .feedback input { width: auto; flex: 1 1 140px; }
+  .feedback kbd { font-size: 11px; color: var(--muted); margin-left: 2px; }
+  #fb-status { color: var(--muted); font-size: 12px; flex-basis: 100%; }
+  .fact { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; margin-top: 10px; }
+  .fact-head { font-weight: 600; }
+  .fact .value { font-size: 15px; }
+  .fact .value b { font-size: 16px; }
+  .same { color: var(--focus); }
+  .differs { color: #a40e26; }
+  .crop { display: block; max-width: 100%; max-height: 240px; margin-top: 6px;
+          border: 1px solid var(--line); cursor: zoom-in; }
+  .meta { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .refused { color: #a40e26; }
+  .note { color: var(--muted); margin-top: 6px; }
+  table { border-collapse: collapse; width: 100%; margin-top: 8px; }
+  th, td { border: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: #f6f8fa; }
+  tr[data-start] { cursor: pointer; }
   #downloads a { margin-right: 16px; }
 </style>
 </head>
 <body>
-<h1>研报点评预审</h1>
+<div id="bar">
+  <h1>研报点评预审</h1>
+  <select id="papers"><option value="">打开已有底稿…</option></select>
+</div>
+<details class="box" id="new" open>
+<summary>核查新稿件</summary>
 <form id="form">
   <div>
     <label for="issuer">发行人</label>
@@ -58,8 +161,13 @@
     <label for="model">模型</label>
     <select id="model">
       <option value="deepseek-flash">deepseek-flash</option>
-      <option value="qwen3.5-9b-extract">qwen3.5-9b-extract（本机）</option>
+      <option value="qwen3.5-9b-extract">本机抽取（qwen3.5-9b-extract）＋ flash 复查</option>
     </select>
+  </div>
+  <div class="wide">
+    <label for="demo">载入示例稿件</label>
+    <select id="demo"><option value="">请选择</option></select>
+    <div class="legend" id="demo-note">示例稿件来自验收集，正文与写稿截止日按底稿原样载入。</div>
   </div>
   <div class="wide">
     <label for="text">稿件正文</label>
@@ -67,25 +175,98 @@
   </div>
   <div class="wide"><button id="submit" type="submit">开始核查</button></div>
 </form>
+</details>
 
 <p id="status"></p>
 <div id="errors"></div>
 <div id="summary"></div>
-<div id="draft"></div>
-<table id="table" hidden><thead><tr>
-  <th>原文</th><th>结论</th><th>来源</th><th>错因</th><th>应有值</th><th>出处</th><th>修改建议</th>
-</tr></thead><tbody></tbody></table>
-<p id="downloads"></p>
+<div id="flowbox" hidden>
+  <div id="flow"></div>
+  <p id="flow-actions">
+    <button class="plain" id="replay" type="button">回放流程</button>
+    <label for="speed" style="font-weight:400">速度</label>
+    <select id="speed"><option value="1">1×</option><option value="2">2×</option></select>
+    <span id="flow-note"></span>
+  </p>
+</div>
+<div id="view" hidden>
+  <section id="left">
+    <div class="legend">
+      <span class="inconsistent">不一致</span><span class="unsupported">无依据</span>
+      <span class="ambiguous">存疑</span><span class="missed">抽取遗漏</span>
+      <span class="consistent">一致</span>
+      虚线框 = 交给人工；✓ = 已点选。快捷键：J 下一个待人工，K 上一个，1 一致，2 确有错误，3 跳过
+    </div>
+    <div id="draft"></div>
+    <details class="box" style="margin-top:12px">
+      <summary>全部数字明细</summary>
+      <table id="table"><thead><tr>
+        <th>原文</th><th>结论</th><th>来源</th><th>理由／错因</th><th>应有值</th><th>出处</th>
+        <th>修改建议</th>
+      </tr></thead><tbody></tbody></table>
+    </details>
+    <p id="downloads"></p>
+  </section>
+  <aside id="right">
+    <div id="process" hidden>
+      <div id="proc-head">等待开始…</div>
+      <div id="proc-raw-wrap" hidden>
+        <pre id="proc-raw"></pre>
+      </div>
+      <div id="proc-body"></div>
+    </div>
+    <div id="evidence">点击左侧的数字，这里显示它的结论、出处原文值与原件页面。</div>
+  </aside>
+</div>
 
 <script>
 const LABELS = {consistent: '一致', inconsistent: '不一致', unsupported: '无依据',
-                ambiguous: '存疑', missed: '抽取遗漏需人工'};
+                ambiguous: '存疑', missed: '抽取遗漏'};
 const SOURCES = {checker: '核查器', agent: 'Agent'};
+const REASONS = {
+  'no figure for this metric and year in scope': '出处库里找不到该科目该年的数',
+  'no line item or unit': '没有选到报表科目或单位',
+  'both years are needed for a change': '算变动需要两年可比数，缺上年',
+  'disclosed figures for the metric disagree': '原文有多个候选值且互不相同，无法确定取哪一个',
+  'rounding difference': '与原文只差舍入',
+  'no positive base year': '基期不为正，无法算增速',
+  'ratio parts not named': '比率没有写明分子分母',
+  'a ratio part has no unambiguous figure': '比率的分子或分母有多个候选值',
+  'line item does not fit the wording': '选到的科目与稿件措辞不符',
+  'quarter, segment or own-method ratio': '季度、分部或自有口径的数字',
+  'ratio sign differs from the parts': '比率符号与分子分母不符',
+  'parent-company claim': '母公司口径的数字',
+  'the figure moved the other way': '增减方向与原文相反',
+  'ratio needs both parts': '比率需要分子和分母',
+  'ratio parts give an implausible percentage': '分子分母算出的百分比不合理',
+  'number not written plainly': '数字写法无法解析',
+  'not a checkable claim': '不是可核查的数字',
+};
+const ERRORS = {value: '数值不符', calculation: '计算有误', direction: '方向相反',
+                digit: '数字笔误', scope: '口径不符', period: '期间不符'};
+const HANDOVER = ['unsupported', 'ambiguous', 'missed'];
+const NODES = ['extract', 'check', 'investigate', 'revise', 'report'];
+// Seconds each stage takes in a replay at 1x, whatever the run took: the run itself
+// spends most of its time extracting, while the agent's lookups are what a viewer
+// wants to watch, so the replay gives them the most time.  核查的每个数字之间留
+// 80 毫秒，和实跑时的节奏一致。
+const REPLAY_PACE = {extract: 10, check: 5, investigate: 15, revise: 6, report: 2};
+const CHECK_TICK = 80;
+const ANSWERS = ['一致', '确有错误', '跳过'];
+const SCALES = {'元': 1, '千元': 1e3, '万元': 1e4, '百万元': 1e6, '千万元': 1e7,
+                '亿元': 1e8, '万亿元': 1e12};
 let issuers = [];
+let paper = null;
+let paperId = null;
+let selected = null;
+let feedback = {};
+let drafts = [];
+let shown = 0;  // which click the right pane belongs to, so a slow answer cannot overwrite a newer one
 
 const $ = (id) => document.getElementById(id);
-const escapeHtml = (text) => text.replace(/[&<>"]/g, (ch) =>
+const escapeHtml = (text) => String(text).replace(/[&<>"]/g, (ch) =>
   ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[ch]));
+const reasonText = (reason) => REASONS[reason] || reason;
 
 async function loadIssuers() {
   const response = await fetch('/api/issuers');
@@ -97,6 +278,53 @@ async function loadIssuers() {
   select.onchange = fillYears;
 }
 
+async function loadModels() {
+  const response = await fetch('/api/config');
+  const config = response.ok ? await response.json() : {local_url: false};
+  const local = [...$('model').options]
+    .find((option) => option.value === 'qwen3.5-9b-extract');
+  if (config.local_url) {
+    $('model').value = local.value;
+  } else {
+    local.disabled = true;
+    local.textContent += '（本机服务未配置，退回 flash）';
+    $('model').value = 'deepseek-flash';
+  }
+}
+
+async function loadDrafts() {
+  const response = await fetch('/api/demo-drafts');
+  if (!response.ok) return;
+  drafts = await response.json();
+  $('demo').innerHTML = '<option value="">请选择</option>' + drafts.map((draft, index) =>
+    `<option value="${index}">${escapeHtml(draft.title)}</option>`).join('');
+  $('demo').onchange = () => applyDraft(Number($('demo').value));
+}
+
+function applyDraft(index) {
+  const draft = drafts[index];
+  if (!draft) return;
+  $('issuer').value = draft.code;
+  fillYears();
+  $('year').value = String(draft.fiscal_year);
+  $('as-of').value = draft.as_of;
+  $('text').value = draft.text;
+  $('demo-note').textContent = draft.source;
+}
+
+async function loadPapers() {
+  const response = await fetch('/api/workpapers');
+  if (!response.ok) return;
+  const papers = await response.json();
+  $('papers').innerHTML = '<option value="">打开已有底稿…</option>' + papers.map((item) => {
+    const s = item.summary;
+    const handed = (s.unsupported || 0) + (s.ambiguous || 0) + (s.missed || 0);
+    return `<option value="${escapeHtml(item.id)}">${escapeHtml(item.id)}` +
+      `（${s.numbers} 个数字，交人工 ${handed}）</option>`;
+  }).join('');
+  if (paperId) $('papers').value = paperId;
+}
+
 function fillYears() {
   const entry = issuers.find((item) => item.code === $('issuer').value);
   const years = entry ? entry.reports : [];
@@ -106,43 +334,56 @@ function fillYears() {
   if (years.length) $('as-of').value = years[years.length - 1].published;
 }
 
+function handed() {
+  return paper.numbers.filter((row) => HANDOVER.includes(row.verdict))
+    .sort((a, b) => a.start - b.start);
+}
+
 function renderSummary(summary) {
   const parts = Object.keys(LABELS).map((key) =>
-    `<span>${LABELS[key]} ${summary[key] || 0}</span>`);
+    `<span class="${key}">${LABELS[key]} ${summary[key] || 0}</span>`);
   parts.push(`<span>Agent 标出 ${summary.agent_flagged || 0}</span>`);
   parts.push(`<span>Agent 认为一致 ${summary.agent_hint_consistent || 0}</span>`);
+  const queue = handed();
+  const done = queue.filter((row) => feedback[row.start]).length;
+  parts.push(`<span class="progress">人工已点选 ${done}／${queue.length}</span>`);
   $('summary').innerHTML = parts.join('');
 }
 
-function renderDraft(text, rows) {
+// 正常渲染带结论颜色；bare 用于回放，先只留位置，颜色由回放过程逐个加上。
+function renderDraft(text, rows, bare) {
   const ordered = [...rows].sort((a, b) => a.start - b.start);
   let html = '', cursor = 0;
   for (const row of ordered) {
     const end = row.start + row.text.length;
     if (row.start < cursor) continue;
     html += escapeHtml(text.slice(cursor, row.start));
-    html += `<span class="num ${row.verdict}" data-start="${row.start}"` +
-            ` title="${LABELS[row.verdict] || row.verdict}">${escapeHtml(row.text)}</span>`;
+    const classes = bare ? ['num', 'pending'] : ['num', row.verdict];
+    if (!bare && HANDOVER.includes(row.verdict)) classes.push('handover');
+    if (!bare && feedback[row.start]) classes.push('done');
+    const title = bare ? '' : ` title="${LABELS[row.verdict] || row.verdict}"`;
+    html += `<span class="${classes.join(' ')}" data-start="${row.start}"${title}>` +
+            `${escapeHtml(row.text)}</span>`;
     cursor = end;
   }
   $('draft').innerHTML = html + escapeHtml(text.slice(cursor));
   for (const span of $('draft').querySelectorAll('.num')) {
-    span.onclick = () => highlight(Number(span.dataset.start));
+    span.onclick = () => showEvidence(Number(span.dataset.start));
   }
 }
 
-function highlight(start) {
-  const row = document.querySelector(`tr[data-start="${start}"]`);
-  if (!row) return;
-  row.scrollIntoView({behavior: 'smooth', block: 'center'});
-  row.classList.add('flash');
-  setTimeout(() => row.classList.remove('flash'), 1500);
+function markDraft() {
+  for (const span of $('draft').querySelectorAll('.num')) {
+    const start = Number(span.dataset.start);
+    span.classList.toggle('selected', start === selected);
+    span.classList.toggle('done', Boolean(feedback[start]));
+  }
 }
 
 function agentNote(agent) {
-  if (agent.verdict === 'consistent') return 'Agent 认为一致，仍需人工确认';
+  if (agent.verdict === 'consistent') return 'Agent 参考：认为一致（不作结论）';
   const basis = agent.basis ? `（依据：${agent.basis}）` : '';
-  return `Agent 认为有误：应为 ${agent.expected || '未给应有值'}${basis}，需人工确认`;
+  return `Agent 参考：认为有误，应为 ${agent.expected || '未给应有值'}${basis}（不作结论）`;
 }
 
 function renderTable(rows) {
@@ -151,15 +392,635 @@ function renderTable(rows) {
       `${item.document || ''} 第${item.page}页`).join('；');
     const suggestion = row.agent ? agentNote(row.agent)
       : (row.suggestion.sentence || row.suggestion.note || '');
+    const why = row.error ? (ERRORS[row.error] || row.error) : reasonText(row.reason || '');
     return `<tr data-start="${row.start}"><td>${escapeHtml(row.text)}</td>` +
       `<td>${LABELS[row.verdict] || row.verdict}</td>` +
       `<td>${SOURCES[row.source] || ''}</td>` +
-      `<td>${escapeHtml(row.error || row.reason || '')}</td>` +
+      `<td>${escapeHtml(why)}</td>` +
       `<td>${escapeHtml(row.expected || '')}</td>` +
       `<td>${escapeHtml(evidence)}</td>` +
       `<td>${escapeHtml(suggestion)}</td></tr>`;
   }).join('');
-  $('table').hidden = rows.length === 0;
+  for (const tr of $('table').querySelectorAll('tr[data-start]')) {
+    tr.onclick = () => showEvidence(Number(tr.dataset.start));
+  }
+}
+
+// The sentence of the draft around a number, with the number marked.
+function sentenceHtml(row) {
+  const text = paper.text;
+  const stops = /[。！？\n]/;
+  let from = row.start, to = row.start + row.text.length;
+  while (from > 0 && !stops.test(text[from - 1])) from -= 1;
+  while (to < text.length && !stops.test(text[to])) to += 1;
+  const end = row.start + row.text.length;
+  return escapeHtml(text.slice(from, row.start)) + `<mark>${escapeHtml(row.text)}</mark>` +
+    escapeHtml(text.slice(end, Math.min(to + 1, text.length)));
+}
+
+// "2,122.26亿元" -> {value: 2122.26, unit: '亿元', decimals: 2}; null when no money unit.
+function parseAmount(text, unit) {
+  const match = String(text).replace(/\s/g, '').match(/^(\(?)([+-]?[\d,]+(?:\.(\d+))?)\)?(.*)$/);
+  if (!match) return null;
+  const name = unit || match[4];
+  if (!(name in SCALES)) return null;
+  const value = Number(match[2].replace(/,/g, '')) * (match[1] ? -1 : 1);
+  return {value: value, unit: name, decimals: (match[3] || '').length};
+}
+
+// A candidate converted to the unit of the draft number; arithmetic only, not a verdict.
+function convertedHtml(row, fact) {
+  if (row.type !== 'amount') return '';
+  const draft = parseAmount(row.text, null);
+  const source = parseAmount(fact.text, fact.unit);
+  if (!draft || !source) return '';
+  const value = source.value * SCALES[source.unit] / SCALES[draft.unit];
+  const text = value.toLocaleString('zh-CN', {minimumFractionDigits: draft.decimals,
+                                               maximumFractionDigits: draft.decimals});
+  const same = value.toFixed(draft.decimals) === draft.value.toFixed(draft.decimals);
+  const diff = (draft.value - value).toLocaleString('zh-CN', {maximumFractionDigits: 4});
+  return ` → 折合 <b>${text}${draft.unit}</b> ` + (same
+    ? '<span class="same">（与稿件数字相同）</span>'
+    : `<span class="differs">（稿件比它多 ${diff}${draft.unit}）</span>`);
+}
+
+function factHtml(row, fact, item, error) {
+  if (error) return `<div class="fact refused">第${item.page}页：${escapeHtml(error)}</div>`;
+  const where = [fact.row_label, fact.column_header].filter(Boolean).join(' ｜ ');
+  const image = fact.crop_url
+    ? `<a href="${fact.page_url}" target="_blank" title="点击看整页">` +
+      `<img class="crop" src="${fact.crop_url}" alt="原件框选图"></a>`
+    : `<div class="note">${escapeHtml(fact.note || '这条事实没有位置框，无法定位到数字')}` +
+      `　<a href="${fact.page_url}" target="_blank">看整页</a></div>`;
+  return `<div class="fact">` +
+    `<div class="fact-head">${escapeHtml(fact.title)} 第${fact.page}页</div>` +
+    `<div>${escapeHtml(where)}</div>` +
+    `<div class="value">原文 <b>${escapeHtml(fact.text)}</b>` +
+    `${fact.unit ? ' ' + escapeHtml(fact.unit) : ''}${convertedHtml(row, fact)}</div>` +
+    image +
+    `<div class="meta">出处库事实 ${fact.id}（底稿记为 ${item.id}），字符 [${fact.start},` +
+    `${fact.end})</div></div>`;
+}
+
+async function factOf(item) {
+  const query = new URLSearchParams({document_id: item.document_id, page: item.page,
+                                     start: item.start, end: item.end});
+  try {
+    const response = await fetch('/api/evidence?' + query);
+    const body = await response.json();
+    return response.ok ? {body: body} : {error: body.error || '取不到这一页'};
+  } catch (error) {
+    return {error: '取不到这一页：' + error};
+  }
+}
+
+async function showEvidence(start) {
+  const row = paper.numbers.find((item) => item.start === start);
+  if (!row) return;
+  const click = ++shown;
+  selected = start;
+  markDraft();
+  const queue = handed();
+  const at = queue.findIndex((item) => item.start === start);
+  const position = at >= 0 ? `待人工第 ${at + 1}／${queue.length} 个`
+    : row.source === 'agent' ? 'Agent 复查后报警' : '核查器已给出结论';
+  const why = [];
+  if (row.error) why.push(`错因：${escapeHtml(ERRORS[row.error] || row.error)}`);
+  if (row.reason) why.push(`理由：${escapeHtml(reasonText(row.reason))}`);
+  if (row.expected) why.push(`应有值：${escapeHtml(row.expected)}`);
+  const suggestion = row.suggestion.sentence || row.suggestion.note || '';
+  if (suggestion && !row.agent) why.push(`修改建议：${escapeHtml(suggestion)}`);
+  const agentFacts = (row.agent && row.agent.evidence) || [];
+  if (row.label) why.push(`科目：${escapeHtml(row.label)}${row.year ? '（' + row.year + '）' : ''}`);
+  $('evidence').innerHTML =
+    `<div class="head"><div><span class="badge ${row.verdict}">` +
+    `${LABELS[row.verdict] || row.verdict}</span> <span class="number">` +
+    `${escapeHtml(row.text)}</span> <span class="note">${position}` +
+    `（来源：${SOURCES[row.source] || '未判'}）</span></div>` +
+    `<div class="nav"><button class="plain" id="prev">← 上一个 K</button>` +
+    `<button class="plain" id="next">下一个 J →</button></div></div>` +
+    `<div class="sentence">${sentenceHtml(row)}</div>` +
+    `<div class="why">${why.map((line) => `<div>${line}</div>`).join('')}</div>` +
+    (row.agent ? `<div class="agent">${escapeHtml(agentNote(row.agent))}</div>` : '') +
+    feedbackHtml(row) +
+    (row.evidence.length ? `<div class="note">原文候选值 ${row.evidence.length} 个：</div>`
+      : '<div class="note">核查器没有给出出处</div>') +
+    `<div id="facts"></div>` +
+    (agentFacts.length ? `<div class="note">${escapeHtml(agentFacts[0].mark)} ` +
+      `${agentFacts.length} 条（Agent 参考，不作结论）：</div>` +
+      `<div id="agent-facts"></div>` : '');
+  $('prev').onclick = () => step(-1);
+  $('next').onclick = () => step(1);
+  bindFeedback(row);
+  const found = await Promise.all(row.evidence.concat(agentFacts).map(factOf));
+  if (click !== shown) return;
+  $('facts').innerHTML = row.evidence.map((item, index) =>
+    factHtml(row, found[index].body || {}, item, found[index].error || '')).join('');
+  if (agentFacts.length) {
+    const cited = found.slice(row.evidence.length);
+    $('agent-facts').innerHTML = agentFacts.map((item, index) =>
+      factHtml(row, cited[index].body || {}, item, cited[index].error || '')).join('');
+  }
+}
+
+function step(direction) {
+  if (!paper) return;
+  const queue = handed();
+  if (!queue.length) return;
+  let target;
+  if (direction > 0) target = queue.find((row) => selected === null || row.start > selected);
+  else target = [...queue].reverse().find((row) => selected !== null && row.start < selected);
+  target = target || (direction > 0 ? queue[0] : queue[queue.length - 1]);
+  showEvidence(target.start);
+  document.querySelector(`#draft .num[data-start="${target.start}"]`)
+    ?.scrollIntoView({block: 'nearest'});
+}
+
+function feedbackHtml(row) {
+  const last = feedback[row.start];
+  return `<div class="feedback"><span>人工判断：</span>` + ANSWERS.map((answer, index) =>
+    `<button data-answer="${answer}" class="${last && last.answer === answer ? 'chosen' : ''}">` +
+    `${answer}<kbd>${index + 1}</kbd></button>`).join('') +
+    `<input id="note" placeholder="备注（可选）" value="${escapeHtml(last ? last.note : '')}">` +
+    `<span id="fb-status">${last ? `上次点选：${escapeHtml(last.answer)}（${last.at}）` +
+      '；再点会追加一条新记录' : '点选后自动跳到下一个待人工的数字；反馈不改底稿结论'}` +
+    `</span></div>`;
+}
+
+function bindFeedback(row) {
+  for (const button of $('evidence').querySelectorAll('.feedback button')) {
+    button.onclick = () => sendFeedback(row.start, button.dataset.answer);
+  }
+}
+
+async function sendFeedback(start, answer) {
+  const status = $('fb-status');
+  status.textContent = '正在记下……';
+  const response = await fetch('/api/feedback', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({review_id: paperId, start: start, answer: answer,
+                          note: $('note').value}),
+  });
+  const body = await response.json();
+  if (!response.ok) {
+    status.textContent = `没有记下：${body.error || response.status}`;
+    return;
+  }
+  feedback[start] = body;
+  renderSummary(paper.summary);
+  markDraft();
+  const next = handed().find((row) => row.start > start && !feedback[row.start])
+    || handed().find((row) => !feedback[row.start]);
+  if (next) {
+    showEvidence(next.start);
+    document.querySelector(`#draft .num[data-start="${next.start}"]`)
+      ?.scrollIntoView({block: 'nearest'});
+  } else {
+    showEvidence(start);
+  }
+}
+
+// The five cards of the flow band, labelled with the models of the workpaper when it
+// records them, else with the models the form asks for.
+const MODEL_NAMES = {'qwen3.5-9b-extract': '本地 9B', 'deepseek-flash': 'flash'};
+function stageTitle(node, models) {
+  const local = $('model').value === 'qwen3.5-9b-extract';
+  const used = models || {extract: local ? 'qwen3.5-9b-extract' : 'deepseek-flash',
+                          agent: 'deepseek-flash'};
+  const extract = MODEL_NAMES[used.extract] || used.extract;
+  const agent = MODEL_NAMES[used.agent] || used.agent;
+  return {extract: `抽取 Agent（${extract}）`, check: '核查器',
+          investigate: `复查 Agent（${agent}）`, revise: `修订 Agent（${agent}）`,
+          report: '底稿'}[node];
+}
+
+function buildFlow(nodes = NODES, models = null) {
+  $('flow').innerHTML = nodes.map((node) =>
+    `<div class="stage" data-node="${node}"><div class="stage-name">${stageTitle(node, models)}` +
+    `</div><div class="stage-status">等待</div><div class="stage-detail"></div>` +
+    `<div class="stage-tools"></div></div>`).join('');
+  $('flowbox').hidden = false;
+  $('flow-note').textContent = '';
+}
+
+function setStage(node, status) {
+  const card = document.querySelector(`.stage[data-node="${node}"]`);
+  if (!card) return;
+  card.classList.toggle('running', status === 'running');
+  card.querySelector('.stage-status').textContent = status === 'running' ? '进行中…' : '等待';
+}
+
+function detailHtml(event) {
+  const detail = event.detail || {};
+  if (event.node === 'extract') return `抽出 ${detail.extracted} 个数字`;
+  if (event.node === 'check') return escapeHtml(Object.entries(detail.conclusions || {})
+    .map(([name, count]) => `${name} ${count}`).join('，'));
+  if (event.node === 'investigate') return `交给 Agent ${detail.handed} 个，判了 ` +
+    `${detail.judged} 个，报警 ${detail.flagged} 个`;
+  if (event.node === 'revise') return `建议 ${detail.advised} 条，通过 ${detail.accepted} 条`;
+  return `底稿 ${detail.numbers} 个数字`;
+}
+
+function toolsHtml(event) {
+  const calls = (event.detail || {}).tools || [];
+  if (event.node !== 'investigate' || !calls.length) return '';
+  const items = calls.map((call) => `<li><code>${escapeHtml(call.name)}</code> ` +
+    `<span class="meta">${escapeHtml(JSON.stringify(call.args))}</span>` +
+    `<div>${escapeHtml(call.result || '（这次调用没有结果）')}</div></li>`).join('');
+  return `<details class="tools"><summary>工具调用 ${calls.length} 次</summary>` +
+    `<ol>${items}</ol></details>`;
+}
+
+function showEvent(event) {
+  const card = document.querySelector(`.stage[data-node="${event.node}"]`);
+  if (!card) return;
+  card.classList.remove('running');
+  card.classList.add('done');
+  card.querySelector('.stage-status').textContent = `完成 · 用时 ${event.seconds} 秒`;
+  card.querySelector('.stage-detail').innerHTML = detailHtml(event);
+  card.querySelector('.stage-tools').innerHTML = toolsHtml(event);
+}
+
+// A finished workpaper with a trace fills the band and can be replayed.
+function showTrace(trace) {
+  if (!trace || !trace.length) {
+    $('flowbox').hidden = true;
+    return;
+  }
+  buildFlow(trace.map((event) => event.node), paper && paper.models);
+  for (const event of trace) showEvent(event);
+  $('flow-note').textContent = '打开已有底稿时按记录重现；点“回放流程”可再看一遍，不调用模型';
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Number positions are the ones the server counts: code points, not UTF-16 units,
+// so a number the run marks is the same number the workpaper will name.
+function codePoints(text) {
+  const starts = [], offsets = new Array(text.length + 1);
+  for (let at = 0; at < text.length;) {
+    const next = at + (text.codePointAt(at) > 0xffff ? 2 : 1);
+    for (let step = at; step < next; step += 1) offsets[step] = starts.length;
+    starts.push(at);
+    at = next;
+  }
+  offsets[text.length] = starts.length;
+  starts.push(text.length);
+  return {starts: starts, offsets: offsets};
+}
+
+// The numbers the extractor may report, at the positions the server reports them.
+const WRITTEN = /(?<![\d.])(-?\d[\d,]*(?:\.\d+)?)\s*(亿元|万元|百万元|%)/gd;
+
+function numberSpans(text) {
+  const {starts, offsets} = codePoints(text);
+  const found = [];
+  for (const match of text.matchAll(WRITTEN)) {
+    found.push({start: offsets[match.indices[1][0]], end: offsets[match.indices[2][1]],
+                at: starts[offsets[match.indices[1][0]]],
+                to: starts[offsets[match.indices[2][1]]]});
+  }
+  return found;
+}
+
+// The draft as the run sees it: every number is a span the stages can colour,
+// before the workpaper with its own verdicts exists.
+function renderRunDraft(text) {
+  const spans = numberSpans(text);
+  let html = '', cursor = 0;
+  for (const span of spans) {
+    if (span.start < cursor) continue;
+    html += escapeHtml(text.slice(cursor, span.at));
+    html += `<span class="num pending" data-start="${span.start}">` +
+      `${escapeHtml(text.slice(span.at, span.to))}</span>`;
+    cursor = span.end;
+  }
+  $('draft').innerHTML = html + escapeHtml(text.slice(cursor));
+}
+
+function markNumber(start, className) {
+  const span = document.querySelector(`#draft .num[data-start="${start}"]`);
+  if (span && className) span.classList.add(className);
+  return span;
+}
+
+function markAgent(start) {
+  const span = markNumber(start, 'inconsistent');
+  if (span && !span.querySelector('.agentmark')) {
+    span.insertAdjacentHTML('beforeend', '<sup class="agentmark">Agent</sup>');
+  }
+}
+
+function strikeOut(sentence, number) {
+  const at = sentence.indexOf(number);
+  if (at < 0) return escapeHtml(sentence);
+  return escapeHtml(sentence.slice(0, at)) + `<del>${escapeHtml(number)}</del>` +
+    escapeHtml(sentence.slice(at + number.length));
+}
+
+// The number of a rewritten sentence, under the value the checker expects.
+function valueHtml(sentence, value) {
+  const at = sentence.indexOf(value);
+  if (at < 0) return escapeHtml(sentence);
+  return escapeHtml(sentence.slice(0, at)) + `<mark>${escapeHtml(value)}</mark>` +
+    escapeHtml(sentence.slice(at + value.length));
+}
+
+// The right pane while a run is going on: what each stage is doing as it does it,
+// instead of the evidence view, which comes back when the workpaper arrives.
+const process = {
+  open() {
+    $('process').hidden = false;
+    $('evidence').hidden = true;
+    $('proc-body').innerHTML = '';
+    $('proc-raw').textContent = '';
+    $('proc-raw-wrap').hidden = true;
+    $('proc-head').innerHTML = '等待开始…';
+    this.chars = 0;
+    this.since = Date.now();
+    this.queue = [];
+    this.waiting = [];
+    this.pending = false;
+    clearInterval(this.timer);
+    this.timer = setInterval(() => this.clock(), 200);
+  },
+
+  close() {
+    clearInterval(this.timer);
+    this.timer = null;
+    if (this.pending) { clearTimeout(this.pending); this.pending = false; }
+    // whatever is still queued is shown at once, so no stage is left unfinished
+    while (this.queue.length) this.check(this.queue.shift());
+    const waiting = this.waiting || [];
+    this.waiting = [];
+    for (const step of waiting) step();
+    $('process').hidden = true;
+    $('evidence').hidden = false;
+    $('right').style.height = '';
+  },
+
+  head(node) {
+    this.node = node;
+    this.since = Date.now();
+    const title = stageTitle(node, paper && paper.models);
+    $('proc-head').innerHTML = `${escapeHtml(title)} <span class="meta" id="proc-clock"></span>`;
+    $('proc-raw-wrap').hidden = node !== 'extract';
+    this.sep(title);
+    this.clock();
+  },
+
+  clock() {
+    const clock = $('proc-clock');
+    if (!clock || !this.node) return;
+    const seconds = (Date.now() - this.since) / 1000;
+    const running = document.querySelector(`.stage[data-node="${this.node}"] .stage-status`);
+    const done = running && running.textContent.startsWith('完成');
+    clock.textContent = `${done ? '用时' : '已用'} ${seconds.toFixed(1)} 秒` +
+      (this.node === 'extract' ? ` · ${this.chars} 字` : '');
+  },
+
+  sep(text) {
+    $('proc-body').insertAdjacentHTML('beforeend',
+      `<div class="proc-sep">${escapeHtml(text)}</div>`);
+    this.scroll();
+  },
+
+  row(kind, html) {
+    $('proc-body').insertAdjacentHTML('beforeend',
+      `<div class="proc-row ${kind}">${html}</div>`);
+    this.scroll();
+  },
+
+  scroll() {
+    // the panel starts below the flow band, so it may only be as tall as the
+    // window below that point, or its newest rows end up under the fold
+    const right = $('right');
+    right.style.height = `${Math.max(320, window.innerHeight - right.getBoundingClientRect().top - 12)}px`;
+    right.scrollTop = right.scrollHeight;
+  },
+
+  delta(event) {
+    this.chars += event.text.length;
+    const raw = $('proc-raw');
+    raw.textContent += event.text;
+    raw.scrollTop = raw.scrollHeight;
+    this.clock();
+  },
+
+  item(event) {
+    markNumber(event.start, 'extracted');
+    const bits = [event.label || '未选到科目', event.year ? `${event.year}年` : '',
+                  event.type || ''].filter(Boolean);
+    this.row('item', `<b>${escapeHtml(event.number || '')}</b> ` +
+      `<span class="meta">${escapeHtml(bits.join(' · '))}</span>`);
+  },
+
+  check(event) {
+    markNumber(event.start, event.verdict);
+    const expected = event.expected ? `（原文值 ${escapeHtml(event.expected)}）` : '';
+    this.row('check', `${escapeHtml(event.label || '')} ${escapeHtml(event.text)} → ` +
+      `${escapeHtml(LABELS[event.verdict] || event.verdict)}${expected}`);
+  },
+
+  // 实跑时核查很快，事件成串到达；逐条按 80 毫秒铺开，看得见每个数字变色。
+  queueCheck(event) {
+    this.queue.push(event);
+    if (!this.pending) this.pending = setTimeout(() => this.tick(), CHECK_TICK);
+  },
+
+  tick() {
+    const next = this.queue.shift();
+    this.pending = false;
+    if (next) this.check(next);
+    if (this.queue.length) {
+      this.pending = setTimeout(() => this.tick(), CHECK_TICK);
+      return;
+    }
+    const waiting = this.waiting || [];
+    this.waiting = [];
+    for (const step of waiting) step();
+  },
+
+  // Run ``step`` once the queued checker rows are laid out, at once when none are.
+  after(step) {
+    if (this.queue.length || this.pending) (this.waiting = this.waiting || []).push(step);
+    else step();
+  },
+
+  tool(event) {
+    this.row('tool', `<code>${escapeHtml(event.name || '')}</code> ` +
+      `<span class="meta">${escapeHtml(JSON.stringify(event.args || {}))}</span>` +
+      `<div class="meta">${escapeHtml(event.result || '（这次调用没有结果）')}</div>`);
+  },
+
+  agent(event) {
+    if (event.verdict === 'inconsistent') markAgent(event.start);
+    const cited = (event.evidence || []).length;
+    this.row('agent', `<b>${escapeHtml(event.text)}</b> ` +
+      `${escapeHtml(event.note || '')}` +
+      (cited ? ` <span class="meta">（回填证据 ${cited} 条）</span>` : ''));
+  },
+
+  revise(event) {
+    const verdict = event.accepted ? '✓ 通过' : '✗ 需人工改写';
+    const after = event.rewritten
+      ? `<div>${valueHtml(event.rewritten, event.expected || '')} ` +
+        `<span class="meta">${verdict}</span></div>`
+      : `<div class="meta">${verdict}</div>`;
+    this.row('revise', `<span class="meta">应有值 ${escapeHtml(event.expected || '')}</span>` +
+      `<div>${strikeOut(event.sentence || '', event.number || '')}</div>` + after);
+  },
+};
+
+// One event of a running review: a node's summary, or one step inside a node.
+function applyEvent(event) {
+  if (event.node) {
+    // the checker's rows are still being laid out one by one; the next stage's
+    // heading waits for them so every row stays under its own stage
+    process.after(() => {
+      showEvent(event);
+      const next = NODES[NODES.indexOf(event.node) + 1];
+      if (next) {
+        setStage(next, 'running');
+        process.head(next);
+      }
+    });
+    return;
+  }
+  if (event.event === 'delta') process.delta(event);
+  else if (event.event === 'item') process.item(event);
+  else if (event.event === 'check') process.queueCheck(event);
+  else if (event.event === 'tool') process.tool(event);
+  else if (event.event === 'agent') process.agent(event);
+  else if (event.event === 'revise') process.revise(event);
+}
+
+// One stage of a replay: the entries its trace kept, at the pace of the replay.
+// A trace without entries - one written before the page knew this detail - falls
+// back to the card alone.
+async function replayStage(event, seconds) {
+  const detail = event.detail || {};
+  const items = detail.items || detail.numbers || [];
+  if (event.node === 'extract' && items.length) {
+    for (const item of items) {
+      process.item(item);
+      await sleep(seconds * 1000 / items.length);
+    }
+    return;
+  }
+  if (event.node === 'check' && items.length) {
+    const pause = Math.min(CHECK_TICK, seconds * 1000 / items.length);
+    for (const entry of items) {
+      process.check(entry);
+      await sleep(pause);
+    }
+    return;
+  }
+  if (event.node === 'investigate' && (detail.tools || []).length + items.length) {
+    const total = (detail.tools || []).length + items.length;
+    const pause = seconds * 1000 / total;
+    for (const call of detail.tools || []) {
+      process.tool(call);
+      await sleep(pause);
+    }
+    for (const entry of items) {
+      process.agent(entry);
+      await sleep(pause);
+    }
+    return;
+  }
+  if (event.node === 'revise' && items.length) {
+    for (const entry of items) {
+      process.revise(entry);
+      await sleep(seconds * 1000 / items.length);
+    }
+    return;
+  }
+  await sleep(seconds * 1000);
+}
+
+async function replay() {
+  if (!paper || !(paper.trace || []).length) return;
+  const trace = paper.trace;
+  const speed = Number($('speed').value);
+  const button = $('replay');
+  button.disabled = true;
+  window.scrollTo({top: 0, behavior: 'smooth'});  // the band is at the top of the page
+  buildFlow(trace.map((event) => event.node), paper && paper.models);
+  $('flow-note').textContent = '回放中：按记录的顺序重现，节奏经过压缩，不调用模型';
+  renderDraft(paper.text, paper.numbers, true);  // the colours grow again as it replays
+  process.open();
+  try {
+    for (const event of trace) {
+      setStage(event.node, 'running');
+      process.head(event.node);
+      await replayStage(event, (REPLAY_PACE[event.node] || 2) / speed);
+      showEvent(event);
+    }
+    $('flow-note').textContent = '回放完成（不调用模型）';
+  } finally {
+    process.close();
+    renderDraft(paper.text, paper.numbers);
+    button.disabled = false;
+  }
+}
+
+// The SSE events of one streaming review, in the order the server pushes them.
+async function* sseEvents(response) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  for (;;) {
+    const {value, done} = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, {stream: true});
+    const chunks = buffer.split('\n\n');
+    buffer = chunks.pop();
+    for (const chunk of chunks) {
+      const line = chunk.split('\n').find((item) => item.startsWith('data: '));
+      if (line) yield JSON.parse(line.slice(6));
+    }
+  }
+}
+
+async function render(reviewId, workpaper) {
+  process.close();  // 底稿到了，过程面板让位给证据视图
+  paperId = reviewId;
+  paper = workpaper;
+  selected = null;
+  feedback = {};
+  const response = await fetch('/api/feedback?review_id=' + encodeURIComponent(reviewId));
+  if (response.ok) feedback = await response.json();
+  $('new').open = false;
+  $('view').hidden = false;
+  $('status').textContent = `底稿 ${reviewId}：稿内数字 ${workpaper.summary.numbers} 个`;
+  $('errors').style.display = 'none';
+  if (workpaper.errors.length) {
+    $('errors').textContent = '以下步骤失败，相关数字已交人工：\n' +
+      workpaper.errors.join('\n');
+    $('errors').style.display = 'block';
+  }
+  renderSummary(workpaper.summary);
+  showTrace(workpaper.trace);
+  renderDraft(workpaper.text, workpaper.numbers);
+  renderTable(workpaper.numbers);
+  $('evidence').innerHTML = handed().length
+    ? '按 J 或点左侧虚线框的数字，从第一个交给人工的数字开始。'
+    : '这篇没有交给人工的数字。点左侧任一数字可看出处。';
+  $('downloads').innerHTML =
+    `<a href="/api/workpapers/${reviewId}.json" download>下载底稿 JSON</a>` +
+    `<a href="/api/workpapers/${reviewId}.md" download>下载底稿 Markdown</a>`;
+  history.replaceState(null, '', '?workpaper=' + encodeURIComponent(reviewId));
+  $('papers').value = reviewId;
+}
+
+async function loadPaper(reviewId) {
+  const response = await fetch('/api/workpapers/' + encodeURIComponent(reviewId) + '.json');
+  if (!response.ok) {
+    $('status').textContent = `读不到底稿 ${reviewId}（服务的数据目录里没有这份文件）`;
+    return;
+  }
+  await render(reviewId, await response.json());
 }
 
 async function submit(event) {
@@ -169,32 +1030,46 @@ async function submit(event) {
   $('status').textContent = '正在核查，请稍候……';
   $('errors').style.display = 'none';
   $('summary').innerHTML = '';
-  $('draft').innerHTML = '';
+  $('new').open = false;  // the form folds away so the band and the process are in view
+  window.scrollTo({top: 0});
+  $('view').hidden = false;  // 运行时右栏显示过程，结束后切回证据视图
   $('downloads').innerHTML = '';
+  $('evidence').innerHTML = '';
+  renderRunDraft($('text').value);
+  process.open();
+  buildFlow();
+  setStage(NODES[0], 'running');
+  process.head(NODES[0]);
   try {
-    const response = await fetch('/api/review', {
+    const response = await fetch('/api/review/stream', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({code: $('issuer').value, fiscal_year: Number($('year').value),
                             as_of: $('as-of').value, text: $('text').value,
                             model: $('model').value}),
     });
-    const body = await response.json();
     if (!response.ok) {
+      const body = await response.json();
       $('status').textContent = body.error || '核查失败';
+      $('flowbox').hidden = true;
+      process.close();
+      $('view').hidden = true;
       return;
     }
-    const paper = body.workpaper;
-    $('status').textContent = '稿内数字 ' + paper.summary.numbers + ' 个';
-    if (paper.errors.length) {
-      $('errors').textContent = '以下步骤失败，相关数字已交人工：\n' + paper.errors.join('\n');
-      $('errors').style.display = 'block';
+    let reviewId = null;
+    for await (const item of sseEvents(response)) {
+      if (item.node === 'done') {
+        reviewId = item.id;
+        break;
+      }
+      if (item.node === 'error') {
+        $('status').textContent = item.message;
+        return;
+      }
+      applyEvent(item);
     }
-    renderSummary(paper.summary);
-    renderDraft(paper.text, paper.numbers);
-    renderTable(paper.numbers);
-    $('downloads').innerHTML =
-      `<a href="/api/workpapers/${body.id}.json" download>下载底稿 JSON</a>` +
-      `<a href="/api/workpapers/${body.id}.md" download>下载底稿 Markdown</a>`;
+    if (!reviewId) return;
+    await loadPaper(reviewId);
+    loadPapers();
   } catch (error) {
     $('status').textContent = '请求失败：' + error;
   } finally {
@@ -202,8 +1077,27 @@ async function submit(event) {
   }
 }
 
+document.addEventListener('keydown', (event) => {
+  if (!paper || event.ctrlKey || event.metaKey || event.altKey) return;
+  if (['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target.tagName)) return;
+  const key = event.key.toLowerCase();
+  if (key === 'j') step(1);
+  else if (key === 'k') step(-1);
+  else if (['1', '2', '3'].includes(key) && selected !== null)
+    sendFeedback(selected, ANSWERS[Number(key) - 1]);
+  else return;
+  event.preventDefault();
+});
+
 $('form').onsubmit = submit;
+$('replay').onclick = replay;
+loadDrafts();
+$('papers').onchange = () => { if ($('papers').value) loadPaper($('papers').value); };
 loadIssuers();
+loadModels();
+loadPapers();
+const wanted = new URLSearchParams(location.search).get('workpaper');
+if (wanted) loadPaper(wanted);
 </script>
 </body>
 </html>

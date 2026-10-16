@@ -198,7 +198,7 @@ def scope(title: str, column: str) -> str | None:
     """Consolidated or parent figures; a "合并及公司" table says so per column."""
     if re.search(r'合并|本集团', column):
         return '合并'
-    if re.search(r'本公司|本行|母公司', column):
+    if re.search(r'本公司|本银行|本行|母公司', column):
         return '母公司'
     if re.search(r'(?<!合并)(?:母公司|本公司|公司)$|(?:母公司|本公司)', column):
         return '母公司'

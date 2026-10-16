@@ -8,6 +8,11 @@ messages to the client's message format and wraps the answer in an
 through one HTTP client only.  Tools are bound in the OpenAI format the client
 sends, and tool calls travel both ways: requests carry an ``AIMessage``'s calls
 and ``ToolMessage`` results, answers come back as an ``AIMessage`` with calls.
+
+``on_delta`` is the one extra the graph may hand in, as a call keyword, when it
+wants to show the text of an answer while it is written; it is forwarded to the
+client, which decides whether it can stream.  A call without it sends exactly
+the request it sent before.
 """
 
 import json
@@ -79,7 +84,8 @@ class ApiChatModel(BaseChatModel):
                   run_manager: CallbackManagerForLLMRun | None = None,
                   **kwargs) -> ChatResult:
         payload = [message_payload(message) for message in messages]
-        answer = self.client.chat(payload, max_tokens=self.max_tokens, tools=kwargs.get('tools'))
+        answer = self.client.chat(payload, max_tokens=self.max_tokens, tools=kwargs.get('tools'),
+                                  on_delta=kwargs.get('on_delta'))
         for name in ('prompt_tokens', 'completion_tokens'):
             self.used[name] = self.used.get(name, 0) + answer['usage'][name]
         return ChatResult(generations=[ChatGeneration(message=answer_message(answer))])

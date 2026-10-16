@@ -134,17 +134,25 @@ def snippet(text: str, query: str) -> str:
     return ''
 
 
-def build_tools(library: Path, code: str, as_of: str) -> list:
+def build_tools(library: Path, code: str, as_of: str,
+                seen: list[dict] | None = None) -> list:
     """The read-only toolbox of one draft: scoped to its issuer and cutoff date.
 
     Each call opens its own read-only connection: the agent runs tools on a
     worker thread, and a connection may only be used where it was opened.
+
+    ``seen``, when given, collects every fact ``find_number`` returns, in call
+    order.  The answer the model writes names no fact - the id of a fact is not
+    something it should have to copy - so the caller learns what the agent read
+    from this list instead, and the result the model sees does not change.
     """
 
     @tool
     def find_number(text: str) -> str:
         """按书写形式在年报表格事实中精确查找一个数字（本发行人，截止日前披露）。"""
         facts = Library(library).find_number(text, code=code, as_of=as_of)[:8]
+        if seen is not None:
+            seen.extend(facts)
         return json.dumps([{'document': fact['document'], 'page': fact['page'],
                             'text': fact['text'], 'row_label': fact['row_label'],
                             'column_header': fact['column_header'], 'unit': fact['unit'],
@@ -203,6 +211,28 @@ def build_tools(library: Path, code: str, as_of: str) -> list:
             return f'算不了：{error}'
 
     return [find_number, search_pages, page_text, calculate]
+
+
+def with_progress(tools: list, on_call) -> list:
+    """The same toolbox, reporting each call as it happens.
+
+    The wrapper runs the tool the agent asked for and then hands the caller the
+    tool's name, the arguments it was called with and the answer it gave.  The
+    model reads that answer unchanged, the agent's own bookkeeping (``seen``)
+    is untouched, and a tool that raises still raises to the ToolNode the same
+    way, so nothing about the run depends on the report.
+    """
+    wrapped = []
+    for item in tools:
+        original = item.func
+
+        def run(*args, _name=item.name, _func=original, **kwargs):
+            result = _func(*args, **kwargs)
+            on_call(_name, kwargs or list(args), result)
+            return result
+
+        wrapped.append(item.model_copy(update={'func': run}))
+    return wrapped
 
 
 def arithmetic(node: ast.AST) -> Decimal:
@@ -282,26 +312,37 @@ def review_draft_single(draft: dict, *, library: Path, model: str, url: str, bud
 
 
 def investigate_draft(draft: dict, numbers: list[dict], *, library: Path, model: str, url: str,
-                      budget_usd: float, cache: Path, max_steps: int = MAX_STEPS) -> dict:
+                      budget_usd: float, cache: Path, max_steps: int = MAX_STEPS,
+                      on_call=None) -> dict:
     """Run the tool agent over only the numbers a person was asked to judge.
 
     ``draft`` holds the draft's ``text``, ``code``, ``company``, ``fiscal_year``
     and ``as_of``; ``numbers`` are the entries to check, each with its written
     ``text`` and its ``occurrence`` in the draft.  The answer comes back as
     parsed items together with the token use and the tool call count; what to do
-    with a verdict stays with the caller.
+    with a verdict stays with the caller.  ``facts`` are the facts the run's
+    ``find_number`` calls returned, in call order, for the caller to bind the
+    answer back to the library with.
+
+    ``on_call``, when given, is told ``(name, args, result)`` as each tool call
+    finishes, which is how the review page follows the lookups of a run; it
+    changes neither what the model reads nor what the caller gets back.
     """
     client = ApiClient(model, budget_usd, Path(cache), url=url)
     llm = ApiChatModel(client=client)
     listed = '\n'.join(f'{index}. {item["text"]}（第{item["occurrence"]}次出现）'
                        for index, item in enumerate(numbers, 1))
+    seen: list[dict] = []
+    tools = build_tools(Path(library), draft['code'], draft['as_of'], seen)
+    if on_call is not None:
+        tools = with_progress(tools, on_call)
     messages = run_agent(
-        llm, build_tools(Path(library), draft['code'], draft['as_of']),
+        llm, tools,
         INVESTIGATE_SYSTEM.format(company=draft['company'], year=draft['fiscal_year'],
                                   code=draft['code'], as_of=draft['as_of']),
         INVESTIGATE_TASK.format(review=draft['text'], numbers=listed), max_steps)
     answer = final_answer(messages)
-    return {'items': parse(answer), 'answer': answer,
+    return {'items': parse(answer), 'answer': answer, 'facts': seen,
             'tool_calls': sum(1 for message in messages if isinstance(message, ToolMessage)),
             'usage': dict(llm.used), 'messages': [trace(message) for message in messages]}
 

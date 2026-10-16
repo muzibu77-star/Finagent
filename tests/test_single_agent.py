@@ -11,7 +11,7 @@ from langchain_core.utils.function_calling import convert_to_openai_tool
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from src.agent.llm import ApiChatModel, message_payload, answer_message
-from src.agent.single import build_tools, review_draft_single
+from src.agent.single import build_tools, review_draft_single, with_progress
 from src.data.library import SCHEMA, Library, digits, terms
 from src.model.api_client import ApiClient
 
@@ -127,6 +127,23 @@ class MessageTest(unittest.TestCase):
         self.assertEqual(tools['page_text'].invoke({'document_id': 'nope', 'page': 1}),
                          '没有这份文件。')
 
+    def test_find_number_records_its_facts_without_changing_what_the_model_sees(self):
+        """The code keeps the fact ids; the model's answer stays what HEAD sent."""
+        seen: list[dict] = []
+        tools = {tool.name: tool for tool in
+                 build_tools(self.path, '600000', '2025-04-30', seen)}
+        answer = tools['find_number'].invoke({'text': '174,144,069,958.25'})
+        self.assertEqual(answer, self.tools()['find_number'].invoke(
+            {'text': '174,144,069,958.25'}))
+        self.assertEqual([fact['id'] for fact in seen], [2])
+        row = Library(self.path).find_number('174,144,069,958.25', code='600000',
+                                            as_of='2025-04-30')[0]
+        self.assertEqual(seen, [row])  # the whole library row, not just the id
+        self.assertEqual((seen[0]['document_id'], seen[0]['page'], seen[0]['start']),
+                         ('r2024', 1, 0))
+        self.assertEqual(tools['find_number'].invoke({'text': '1,741.44'}), '[]')
+        self.assertEqual(len(seen), 1)  # a miss records nothing
+
     def test_a_keyword_brings_back_its_lines_with_the_page_header(self):
         tools = self.tools()
         text = tools['page_text'].invoke({'document_id': 'r2024', 'page': 2,
@@ -140,7 +157,21 @@ class MessageTest(unittest.TestCase):
         missed = tools['page_text'].invoke({'document_id': 'r2024', 'page': 2,
                                            'keyword': '研发费用'})
         self.assertIn('未找到“研发费用”', missed)
-        self.assertIn('2.1 主要会计数据和财务指标', missed)  # the first lines of the page
+
+    def test_a_reported_call_changes_neither_the_answer_nor_the_tool_the_model_sees(self):
+        """工具调用照常执行，只是把这次调用报给页面；模型读到的仍是工具自己的回答。"""
+        calls = []
+        tools = {tool.name: tool for tool in with_progress(
+            build_tools(self.path, '600000', '2025-04-30'),
+            lambda name, args, result: calls.append((name, args, result)))}
+        self.assertEqual(convert_to_openai_tool(tools['find_number']),
+                         convert_to_openai_tool(self.tools()['find_number']))
+        answer = tools['find_number'].invoke({'text': '174,144,069,958.25'})
+        self.assertEqual(answer, self.tools()['find_number'].invoke(
+            {'text': '174,144,069,958.25'}))
+        self.assertEqual(calls, [('find_number', {'text': '174,144,069,958.25'}, answer)])
+        self.assertEqual(tools['calculate'].invoke({'expression': '(1+1)*3'}), '6')
+        self.assertEqual([name for name, _, _ in calls], ['find_number', 'calculate'])
 
     def test_search_returns_the_file_page_table_and_a_short_snippet(self):
         hits = json.loads(self.tools()['search_pages'].invoke({'query': '营业成本'}))

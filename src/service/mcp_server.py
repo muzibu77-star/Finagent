@@ -9,6 +9,11 @@ cutoff date the caller passes.
 
     python -m src.service.mcp_server --library <library.sqlite> --data-dir <dir> \
         --model deepseek-flash --budget-usd 0.5
+
+``--model`` on ``--url`` extracts the numbers; ``--agent-model`` investigates
+and revises.  When the two differ the agent runs on DeepSeek with its own
+``api_cache_deepseek-flash.jsonl``, so the local extractor hands the review to
+flash; when they match, every request is served and cached exactly as before.
 """
 
 import argparse
@@ -23,12 +28,16 @@ from src.agent.single import REFUSED
 from src.data.library import Library
 
 DEEPSEEK_URL = 'https://api.deepseek.com/chat/completions'
+AGENT_CACHE = 'api_cache_deepseek-flash.jsonl'
 
 
 def build_server(*, library: Path, data_dir: Path, model: str, url: str,
-                 budget_usd: float) -> FastMCP:
-    """The MCP server of one library, model and budget."""
+                 budget_usd: float, agent_model: str = 'deepseek-flash') -> FastMCP:
+    """The MCP server of one library, model, agent model and budget."""
     cache = data_dir / 'api_cache.jsonl'
+    agent = {} if agent_model == model else {
+        'agent_model': agent_model, 'agent_url': DEEPSEEK_URL,
+        'agent_cache': data_dir / AGENT_CACHE}
     mcp = FastMCP('finagent-review')
 
     def company_of(code: str, fiscal_year: int) -> str | None:
@@ -51,7 +60,7 @@ def build_server(*, library: Path, data_dir: Path, model: str, url: str,
         draft = {'text': text, 'code': code, 'company': company,
                  'fiscal_year': fiscal_year, 'as_of': as_of}
         return review_draft(draft, library=library, model=model, url=url,
-                            budget_usd=budget_usd, cache=cache)
+                            budget_usd=budget_usd, cache=cache, **agent)
 
     @mcp.tool()
     def find_number(text: str, code: str, as_of: str) -> str:
@@ -92,11 +101,15 @@ def main() -> None:
                         help='workpapers and the API cache')
     parser.add_argument('--model', default='deepseek-flash')
     parser.add_argument('--url', default=DEEPSEEK_URL)
+    parser.add_argument('--agent-model', default='deepseek-flash',
+                        help='the model that investigates and revises; the local '
+                             'extractor of --model hands the review to it')
     parser.add_argument('--budget-usd', type=float, default=0.5)
     args = parser.parse_args()
     args.data_dir.mkdir(parents=True, exist_ok=True)
     build_server(library=args.library, data_dir=args.data_dir, model=args.model,
-                 url=args.url, budget_usd=args.budget_usd).run()
+                 url=args.url, budget_usd=args.budget_usd,
+                 agent_model=args.agent_model).run()
 
 
 if __name__ == '__main__':

@@ -177,6 +177,28 @@ class TableFactsTest(unittest.TestCase):
         self.assertEqual(scope('合并利润表', '本期发生额'), '合并')
         self.assertIsNone(scope('应收账款', '期末余额'))
 
+    def test_a_banks_own_column_is_the_parent_scope(self):
+        # 兴业银行 2023—2025 (601166) prints "本集团" over the consolidated columns and
+        # "本银行" over the bank's own columns of one "合并及银行…表"; without this the
+        # bank's own figures were read as consolidated ones.
+        self.assertEqual(scope('合并及银行利润表', '本集团 2024年'), '合并')
+        self.assertEqual(scope('合并及银行利润表', '本银行 2024年'), '母公司')
+        self.assertEqual(scope('合并及银行资产负债表（续）', '本银行 2024年'), '母公司')
+        self.assertEqual(scope('', '本银行'), '母公司')
+        # A column that heads both the group's and the bank's figures stays consolidated.
+        self.assertEqual(scope('28. 其他权益工具', '本集团及本银行 2024年'), '合并')
+        placed = {(0, 0): '项目', (0, 1): '本集团 2024年', (0, 2): '本银行 2024年',
+                  (1, 0): '资产总计', (1, 1): '1,000', (1, 2): '900'}
+        values = {(1, 1): {'start': 0, 'end': 5, 'box': [], 'text': '1,000'},
+                  (1, 2): {'start': 6, 'end': 9, 'box': [], 'text': '900'}}
+        meta = {'title': '合并及银行资产负债表（续）', 'unit': '元', 'scale': '1',
+                'currency': '人民币', 'statement_date': '2024年12月31日',
+                'unit_source': 'title'}
+        facts, _ = rows_to_facts(placed, [0], column_headers(placed, [0]), values, meta,
+                                 None, 66)
+        self.assertEqual([(fact['column_header'], fact['scope']) for fact in facts],
+                         [('本集团 2024年', '合并'), ('本银行 2024年', '母公司')])
+
     def test_note_numbers_under_a_merged_header(self):
         self.assertTrue(note_number('2023年12月31日 附注五', '42'))
         self.assertFalse(note_number('2023年12月31日 附注五', '1,234'))

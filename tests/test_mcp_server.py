@@ -9,11 +9,13 @@ import tempfile
 import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from unittest import mock
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 from src.data.library import SCHEMA, add_page, digits
+from src.service.mcp_server import DEEPSEEK_URL, build_server
 
 ROOT = Path(__file__).resolve().parent.parent
 TEXT = '2024年营业收入1,745.44亿元；2024年营业收入1,741.44亿元。'
@@ -85,7 +87,8 @@ class McpServerTest(unittest.IsolatedAsyncioTestCase):
             command=sys.executable,
             args=['-m', 'src.service.mcp_server', '--library', str(self.library),
                   '--data-dir', str(self.data_dir), '--model', 'qwen3.5-9b-extract',
-                  '--url', url, '--budget-usd', '0'],
+                  '--url', url, '--agent-model', 'qwen3.5-9b-extract',
+                  '--budget-usd', '0'],
             env=env, cwd=str(ROOT))
 
     async def test_the_server_lists_and_answers_the_tools(self):
@@ -136,6 +139,57 @@ class McpServerTest(unittest.IsolatedAsyncioTestCase):
                     'check_draft', {'code': '600000', 'fiscal_year': 2030,
                                     'as_of': '2025-04-30', 'text': TEXT})).content[0].text)
                 self.assertIn('出处库中没有发行人 600000 的 2030 年年度报告', answer['error'])
+
+
+class McpAgentModelTest(unittest.TestCase):
+    """The agent model ``check_draft`` picks, without a client or a model."""
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        root = Path(self.directory.name)
+        self.library = root / 'library.sqlite'
+        build_library(self.library)
+        self.data_dir = root / 'data'
+        self.data_dir.mkdir()
+
+    def tearDown(self):
+        self.directory.cleanup()
+
+    def check(self, *, model: str, url: str,
+              agent_model: str = 'deepseek-flash') -> dict:
+        """The review_draft arguments of one check_draft call, captured, not run."""
+        seen: dict = {}
+        with mock.patch('src.service.mcp_server.review_draft') as draft:
+            draft.side_effect = lambda *args, **kwargs: seen.update(kwargs)
+            server = build_server(library=self.library, data_dir=self.data_dir,
+                                  model=model, url=url, budget_usd=0.0,
+                                  agent_model=agent_model)
+            # the tool function registered by FastMCP, called directly
+            server._tool_manager.get_tool('check_draft').fn(
+                code='600000', fiscal_year=2024, as_of='2025-04-30', text=TEXT)
+        return seen
+
+    def test_a_local_extractor_hands_the_review_to_flash_on_its_own_cache(self):
+        seen = self.check(model='qwen3.5-9b-extract',
+                          url='http://127.0.0.1:18090/v1/chat/completions')
+        self.assertEqual(seen['cache'], self.data_dir / 'api_cache.jsonl')
+        self.assertEqual(seen['agent_model'], 'deepseek-flash')
+        self.assertEqual(seen['agent_url'], DEEPSEEK_URL)
+        self.assertEqual(seen['agent_cache'],
+                         self.data_dir / 'api_cache_deepseek-flash.jsonl')
+
+    def test_the_default_flash_extractor_keeps_the_single_cache(self):
+        seen = self.check(model='deepseek-flash', url=DEEPSEEK_URL)
+        self.assertNotIn('agent_model', seen)
+        self.assertEqual(seen['model'], 'deepseek-flash')
+        self.assertEqual(seen['url'], DEEPSEEK_URL)
+        self.assertEqual(seen['cache'], self.data_dir / 'api_cache.jsonl')
+
+    def test_matching_models_keep_the_single_cache(self):
+        seen = self.check(model='qwen3.5-9b-extract',
+                          url='http://127.0.0.1:18090/v1/chat/completions',
+                          agent_model='qwen3.5-9b-extract')
+        self.assertNotIn('agent_model', seen)
 
 
 if __name__ == '__main__':
