@@ -289,7 +289,21 @@ Claude 在这里派工并记录验收；Codex 在这里领任务并回报。项�
   - 人工核对 20 条新获单位的事实（固定种子），写 `/test/Finagent/runs/t17_audit.jsonl`；
   - v7 中已有单位的事实在 v8 中完全不变（元组比较）；`unittest discover` 通过（新规则配真实句子的单元测试，含“两种声明冲突不应用”与“非报表的单位声明不应用”）。
 
-### T18 复查与修订 Agent 改用本地模型（待执行）
+### T18 复查与修订 Agent 改用本地模型（进行中：A1、A2 已验收，A3 已批准待执行）
+
+**Claude 2026-10-16 批准 A3（R0、R1、R2；R3 不跑）**：A2 作为管线冒烟验收——工具调用可解析、答案能走到 `parse()`；答案收尾重复触顶属于模型行为，正由 A3 的“不可解析 ≤ 3／66”判据衡量，**不调解码参数（温度、重复惩罚）、不改提示词与 `parse()`**。在你写的 A3 命令基础上改为分片并行：
+- 服务与 A2 命令逐字相同（日志 `/test/Finagent/tmp/t18_a3_server.log`）。
+- **R0**：`--shard i 8`（i=1..8）8 个进程同时跑，输出 `/test/Finagent/runs/t18_a3/r0/s<i>/`；全部结束后把 8 份 `api_cache.jsonl` 按请求去重合并为 `/test/Finagent/runs/t18_a3/r0/api_cache.jsonl`，再在 `r0/` 不带 `--shard` 整集重跑计分（应 0 新请求，回报核实）。
+- **R1、R2 同时开跑**：各 8 片，每片输出 `r1/s<i>/`、`r2/s<i>/`，先拷入 R0 合并后的 `api_cache.jsonl` 作种子。R1 每片 `--budget-usd 0.50`（合计 ≤ 4 美元），`.env` 用 `set -a; . ./.env; set +a` 载入，`NO_PROXY` 只放 127.0.0.1／localhost。全部结束后分别合并抽取缓存与 `api_cache_<agent-model>.jsonl`，在 `r1/`、`r2/` 不带 `--shard` 整集重跑计分（0 新请求、0 新花费，回报核实）。R2 整集重跑时服务须仍在（只为防意外未命中；未命中数须为 0）。
+- 某片因 HTTP 错误中断：同目录原命令重跑该片（缓存续跑），回报次数；同一片失败 2 次就停下回报。
+- **报告**：按 T18 判据对 R2 逐条给出“达标／不达标”及数值（安全、有用、稳定三类，对照 R0、R1），以及“另报告”各项与失败归类；每个不可解析答案另记 `finish_reason`、长度、文中是否含可单独解析的 JSON 数组（仅作诊断，不计分）。另把 Agent 标出的数字按真值拆分（wrong／correct／unverifiable）分别给 R1、R2。
+- 跑完 `pkill -f "vllm serve"`，确认显存释放；状态改“待验收”。不开始 A4，不跑 R3。
+
+**Claude 2026-10-16 批准 A2**：按回报中的 A2 命令原样执行（单卡、端口 18090、`--max-model-len 40960`、`qwen3_coder`）。补充：
+- 起不来（显存不足）时依次把 `--max-num-seqs` 降到 4、2 再试；不得改用 `--kv-cache-dtype fp8`、不得降 `--max-model-len`，仍起不来就停下回报。
+- `qwen3_coder` 解析不出工具调用（第 4 步“带已解析工具调用”为 0）时，允许换 `qwen3_xml`、再换 `hermes` 各试一次，回报每种的结果；冒烟输出目录按解析器分开（`/test/Finagent/runs/t18_a2/<parser>/`）。
+- 除通过标准外另报：该篇 Agent 请求数、最大单次输入 token、`finish_reason` 分布、耗时；抽 2 条工具调用与最终答案原文贴在回报里。
+- 跑完必须 `pkill -f "vllm serve"` 并确认显存释放。A2 结束后**不要开始 A3**：把 A3 R0／R1／R2 的完整命令（含共用抽取缓存的做法、R1 的 flash 预算与 `.env`）写进回报，状态改“待验收”。
 
 **背景**：阶段 6 的混合流程中，抽取已验证可换成本地 9B LoRA，但复查 Agent（investigate）与修订 Agent（revise）只用 `deepseek-flash` 验证过；部署时稿件不能出本机。要回答：**全链路本地模型时，复查 Agent 能否保住“只加报警、不放行”，判出率能否接近 flash。** 先测免训练模型，不达标再由用户决定是否训练。分四步，A1 可直接做；A2 起需起推理服务与评测，**每步开跑前回报完整命令，等用户确认**。flash 花费合计 ≤ 5 美元。
 
@@ -307,6 +321,212 @@ Claude 在这里派工并记录验收；Codex 在这里领任务并回报。项�
 - **禁止**：不提交、不推送；不改核查器、抽取提示词、`judge()` 与复查提示词；A3 出结果后不调整判据；不动 `library_v5`—`v8` 与已有 `runs/`、`artifacts/` 目录。
 
 ## 回报
+
+### T18（A1 已完成；A2 已执行未达通过标准，待验收）
+
+**A1 改了哪些文件**
+
+- `src/agent/graph.py`：`build_graph(checker, llm, *, agent_llm=None, investigator=None)` 新增 `agent_llm`，`revise` 节点改用它；不给时用 `llm`。`review_draft()` 新增关键字参数 `agent_model`／`agent_url`／`agent_cache`，investigate 与 revise 都用它们，extract 仍用 `model`；三者默认取抽取的 `model`／`url`／`cache`，且三者都等于原值时复用同一个 `ApiChatModel`（同一缓存、请求体逐字不变）。
+- `src/evaluation/run_graph.py`：新增 `--agent-model`／`--agent-url`（不给即沿用 `--model`／`--url`）；两个模型各自缓存——抽取用 `<输出目录>/api_cache.jsonl`，Agent 模型用 `<输出目录>/api_cache_<agent-model>.jsonl`；`summary` 新增 `cache`（用到的缓存文件名）与 `cost_usd_by_model`（按模型分别计费），`cost_usd`／`cost_usd_new` 口径不变；新增 `--shard I N` 只跑第 I 片（1 起、连续切分，越界报错）。docstring 写明“每片一个输出目录＋抽取缓存副本做种子，各片缓存按请求去重合并成 `api_cache.jsonl` 后整集重跑（零新请求）”的 T16 做法。新增三个小函数 `cache_rows()`／`cache_files()`／`shard_reviews()`，无新配置项。
+- `src/model/api_client.py`：`LOCAL` 加 `qwen3.6-27b`（R3 用；`qwen3.5-9b`、`qwen3.5-9b-extract` 已在）。服务的 `--served-model-name` 必须与这三个名字一致，否则 `ApiClient` 以“没有价目”拒绝。
+- 测试：`tests/test_agent_graph.py` +6（revise 用 Agent 模型；不给时全用抽取模型；investigate 仍走传入的 stub；`review_draft` 不给 Agent 模型时只有一个缓存文件、且抽取请求体逐字等于旧实现（按写定请求体重算 sha256 命中缓存）；给 Agent 模型时两个缓存各只含自己的模型；investigate 拿到 Agent 的 model／url／cache）；新增 `tests/test_run_graph.py` 7（切片覆盖整集一次、192 篇分 6 片各 32、越界拒绝、缓存命名、summary 的缓存名与按模型计费、`--shard` 只计当前片）。
+
+**验证命令及输出摘要**
+
+1. `CUDA_VISIBLE_DEVICES= .venv/bin/python -m unittest discover -s tests -q` → `Ran 204 tests in 11.457s OK`（T17 后 191，+13 为本次用例）。全程 CPU，未装依赖、未用 GPU、未跑模型、未调用 API。
+2. `git diff --check` 干净；`.venv/bin/python -m src.evaluation.run_graph --help` 正常列出 `--agent-model`／`--agent-url`／`--shard I N`。
+3. A2 需要的两个数（只读现有产物，未启动模型）：`/test/Finagent/runs/indep/full/` 六片缓存共 5,357 行，复查轨迹**最大单次输入 29,730 token**（最大输出 6,703）。Qwen3.5-9B 文本层 KV = 32 层 × 4 KV 头 × 256 维 × 2 B × 2 ≈ 128 KiB/token，`--max-model-len 40960`（≥ 29,730 输入 + 8,000 生成）需约 5.0 GiB KV；权重 17.98 GiB（其中视觉塔 3.1 GiB，`--language-model-only` 后语言部分约 14.9 GiB），`--gpu-memory-utilization 0.90` ＝ 21.6 GiB，余约 1.5 GiB 给激活与 LoRA，预计放得下（以 A2 实测为准）。
+4. 工具解析器：本机 vLLM 0.25.1 注册表里有 `qwen3_coder`／`qwen3_xml`（同一个 `Qwen3EngineToolParser`）与 `hermes` 等；模型自带 README 的 vLLM 命令用的是 `--tool-call-parser qwen3_coder`。本模型的工具调用格式是 `<tool_call><function=…><parameter=…>`（`chat_template.jinja` 第 53、112 行），A2 先用 `qwen3_coder`，解析不出再试 `qwen3_xml`／`hermes`。
+
+**A2 完整命令（等你确认后再跑，预计 10—20 分钟；不提交、不改 v5—v8 与已有 runs/）**
+
+```bash
+# 1) 起本地服务：基座 + 抽取 LoRA + 工具调用（单卡）
+cd /root/Finagent && V=$PWD/.venv-serving && \
+PATH=$V/bin:$PATH CUDA_VISIBLE_DEVICES=0 \
+LD_LIBRARY_PATH=$V/lib/python3.12/site-packages/nvidia/cu13/lib \
+nohup setsid $V/bin/vllm serve \
+  /test/Finagent/models/Qwen3.5-9B/c202236235762e1c871ad0ccb60c8ee5ba337b9a \
+  --served-model-name qwen3.5-9b --host 127.0.0.1 --port 18090 \
+  --max-model-len 40960 --gpu-memory-utilization 0.90 --max-num-seqs 8 --enforce-eager \
+  --language-model-only --enable-lora --max-lora-rank 16 \
+  --lora-modules qwen3.5-9b-extract=/test/Finagent/runs/stage4_extract_v1/step_0072 \
+  --enable-auto-tool-choice --tool-call-parser qwen3_coder \
+  > /test/Finagent/tmp/t18_a2_server.log 2>&1 &
+
+# 2) 等服务就绪（约 3 分钟）
+for i in $(seq 60); do
+  NO_PROXY=127.0.0.1,localhost curl -sf http://127.0.0.1:18090/v1/models && break; sleep 5
+done
+
+# 3) 冒烟：开发集第 1 篇，抽取用 9B LoRA、复查与修订用 9B 基座（本地服务免费）
+cd /root/Finagent && NO_PROXY=127.0.0.1,localhost no_proxy=127.0.0.1,localhost \
+.venv/bin/python -m src.evaluation.run_graph \
+  --library data/staged/library_v8/library.sqlite \
+  --reviews data/staged/eval_v2/development_reviews.jsonl \
+  --labels data/staged/eval_v2_labels/development_review_labels.jsonl \
+  --output-dir /test/Finagent/runs/t18_a2/full --budget-usd 0 \
+  --model qwen3.5-9b-extract --url http://127.0.0.1:18090/v1/chat/completions \
+  --agent-model qwen3.5-9b --agent-url http://127.0.0.1:18090/v1/chat/completions \
+  --shard 1 66
+
+# 4) 验收证据（工具调用是否解析成功、答案是否可解析、底稿是否有 Agent 来源结论）
+cd /root/Finagent && .venv/bin/python -c "
+import glob, json
+rows=[json.loads(l) for l in open('/test/Finagent/runs/t18_a2/full/api_cache_qwen3.5-9b.jsonl')]
+print('Agent 请求', len(rows), '；带已解析工具调用', sum(1 for r in rows if r['tool_calls']))
+paper=json.load(open(glob.glob('/test/Finagent/runs/t18_a2/full/workpapers/*.json')[0]))
+print('errors', paper['errors']); print('summary', paper['summary'])"
+
+# 5) 收尾
+pkill -f "vllm serve"
+```
+
+通过标准（T18 原文）：至少一次工具调用解析成功（第 4 步“带已解析工具调用”> 0）、最终答案能被 `parse()` 解析（`errors` 里没有 `unparsable investigate answer`）、底稿出现 Agent 来源的结论或提示（`summary.agent_flagged` 或 `summary.agent_hint_consistent` > 0）。任一条不过我把日志与失败归类回报，等你定是否换 `qwen3_xml`／`hermes` 或调 `--max-model-len`。
+
+**未完成或有疑问**
+
+1. **只有 1 张 4090 可见**（24,564 MiB，当前无进程占用）：A3 的 R3（4×4090 张量并行）现在跑不了，届时要么换机要么由你确认卡数。A2／A3 的 R0—R2 单卡可做。
+2. `--max-model-len` 按 T18 规则取 flash 轨迹最大输入 29,730 + 8,000 生成余量 = 40,960；本地模型的轨迹可能比 flash 长（工具调用次数不同），超上限时 vLLM 会直接报错、该篇按现有规则保守留在人工清单（不会截断工具输出）。是否放宽上限由你定；若 40,960 起不来，可选项是 `--kv-cache-dtype fp8`（KV 减半到 2.5 GiB，会轻微改变数值）或降并发，我没有擅自加。
+3. 缓存分开后预算也各自起算：`--budget-usd` 由每个客户端按自己缓存里的已花金额判断（原来共用一个缓存，Agent 的额度会把抽取已花的算进去）。R1“本地抽取＋flash Agent”不受影响（抽取免费、Agent 额度就是它的上限）；若将来用付费抽取，Agent 的额度要在抽取花费之外另给。
+4. A3／A4 未开始（按 T18 要求等你对 A2 的确认）；`library_v5`—`v8` 与既有 `runs/`、`artifacts/` 未改动。`architecture.md` 里 `review_draft` 签名属小改，按惯例留给你。
+
+**A2 执行结果（2026-10-16，按你 2026-10-16 的批准原样执行：1 篇冒烟，三条通过标准过 1 条）**
+
+一、服务、解析器与收尾
+
+- 服务按 A2 命令逐字起：`--max-model-len 40960` 一次起得来，**没有**出现显存不足，故未降 `--max-num-seqs`、未换 `--kv-cache-dtype fp8`。11:20:30 启动、约 35 秒就绪（`/v1/models` 同时列出 `qwen3.5-9b` 与 LoRA `qwen3.5-9b-extract`）；加载后 `nvidia-smi` 21,878／24,564 MiB。
+- 工具调用解析器：`qwen3_coder` 直接可用（27 个回合全部解析出工具调用），没有出现“带已解析工具调用为 0”，所以**未**换 `qwen3_xml`／`hermes`，冒烟产物仍在 `/test/Finagent/runs/t18_a2/full/`，未另建 `<parser>/` 目录。
+- 收尾：`pkill -f "vllm serve"` 后服务日志末行 `Application shutdown complete.`，无 vllm 进程，显存回到 1 MiB／24,564 MiB。
+- 除本文件外没有改任何仓库文件；`library_v5`—`v8`、既有 `runs/` 与 `artifacts/` 未动；全程本地、花费 0 美元。
+
+二、通过标准逐条
+
+| 通过标准（T18 原文） | 结果 | 证据 |
+|---|---|---|
+| 至少一次工具调用解析成功 | **通过** | Agent 缓存 37 个请求中 27 个回合带已解析工具调用，合计 50 次工具调用（`page_text` 17、`find_number` 16、`search_pages` 12、`calculate` 5） |
+| 最终答案能被 `parse()` 解析 | **不通过** | `errors` 里有一条 `unparsable investigate answer: '从第7页可以看到：…'` |
+| 底稿出现 Agent 来源的结论或提示 | **不通过** | `summary.agent_flagged = 0`、`summary.agent_hint_consistent = 0`（因果上由第 2 条导致） |
+
+失败归类（第 2 条）：**答案格式失败 ＋ 重复输出触顶**，不是工具层失败。
+
+- 出问题的是 investigate 第 28 回合（最后一个回合）：`finish_reason='length'`，8,000 token 输出全部用满后截断，该回合不再调用工具。
+- 答案原文是叙述体：先复述“从第7页可以看到：…”的四个数字，中间给出一版 16 条的 JSON 数组，随后“等等，我需要重新检查一些数据”逐条自检、再重发一版同样的数组——同一句“现在让我生成最终的JSON数组”出现 6 次，全文 14,004 字、217 行。提示词要求“除这个 JSON 数组外不要输出任何文字”，模型没有遵守；`parse()` 只认裸 JSON 数组，于是这 16 条判断（其中 14 条判“错误”）全部落空。
+- 排除其他归类：不是工具参数格式错（50 次调用全部解析成功，没有工具报错）、不是用错工具（`find_number`→`search_pages`→`page_text`→`calculate` 的用法都对）、不是撞 40 步上限（28 回合主动收口）、不是超 `--max-model-len`（最大单次输入 19,608 ≪ 40,960）。
+
+该篇计分（`/test/Finagent/runs/t18_a2/full/summary.json`）：31 个数字，一致 6／不一致 9／无依据 12／存疑 4／遗漏 0；非舍入放行 0、误报 0。因为 Agent 答案整体落空，这篇实际退化成“确定性核查 ＋ 用抽取模型做的修订”，对本地复查能力没有提供信息（原因见第 3 条）。
+
+三、你要求另报的数
+
+第 4 步验收脚本原样输出：
+
+```
+Agent 请求 37 ；带已解析工具调用 27
+errors ["unparsable investigate answer: '从第7页可以看到：\n- 营业收入：83,272,067,317.19元（832.72亿元），同比增长12.58%\n- 归属于上市公司股东的净利润：30,210,585,269.30元（302.11亿元），同比增长13.19%\n- 总资产：165,432,981,684.75元（1654.33亿元），同比增长8.26%\n- 归属于上市公司股东的净资产：129,558,241,040.51元（1295']
+summary {'numbers': 31, 'consistent': 6, 'inconsistent': 9, 'unsupported': 12, 'ambiguous': 4, 'missed': 0, 'agent_flagged': 0, 'agent_hint_consistent': 0}
+```
+
+- **该篇 Agent 请求数**：37（investigate 28 回合 ＋ revise 9 次）；另加 1 次抽取请求（`qwen3.5-9b-extract`），本次服务共 38 次请求，全部本地、花费 0（`cost_usd_by_model`：`qwen3.5-9b` 0.0、`qwen3.5-9b-extract` 0.0）。
+- **最大单次输入 token**：19,608（investigate 第 28 回合）。分项：investigate 28 回合合计输入 318,105／输出 14,102；revise 9 次合计输入 1,023／输出 348；抽取 1,546／3,180。
+- **`finish_reason` 分布**（37 个 Agent 请求）：`tool_calls` 27、`stop` 9、`length` 1。
+- **耗时**：11:21:2x 起、11:34:50 止，约 13 分半（抽取 ≈3.4 分钟；investigate 28 回合 ≈8.5 分钟；revise 9 次 ≈1.5 分钟）。38 次请求合计输入 320,674、输出 17,630，端到端生成速率**约 21 token／秒**，明显低于 `environment.md` 记的阶段 4 的 120 token／秒；本次是 `--max-model-len 40960` ＋ `--enforce-eager`、prompt 最长 19.6k，原因未查。若 A3 沿用这个速率：R0（66 篇只抽取＋核查）约 3 小时，R2（再加本地复查）按本篇 13.5 分钟／篇估算要十小时以上——A3 开跑前请先定是否分片。
+
+抽 2 条工具调用与最终答案原文（节选）：
+
+- 第 1 回合一次批量 16 条 `find_number`，前 3 条：`find_number {"text": "764.21亿元"}`、`find_number {"text": "12.9%"}`、`find_number {"text": "628.42亿元"}`
+- 第 19 回合：`calculate {"expression": "(115456300910.64 - 92358426975.79) / 92358426975.79 * 100"}`
+- 最终答案（第 28 回合，8,000 token 处截断，原文 14,004 字）开头与中途：
+
+```
+从第7页可以看到：
+- 营业收入：83,272,067,317.19元（832.72亿元），同比增长12.58%
+- 归属于上市公司股东的净利润：30,210,585,269.30元（302.11亿元），同比增长13.19%
+- 总资产：165,432,981,684.75元（1654.33亿元），同比增长8.26%
+- 归属于上市公司股东的净资产：129,558,241,040.51元（1295.58亿元），同比增长13.62%
+
+现在让我生成最终的JSON数组。
+（原文此处开始是一段 JSON 代码围栏，内容为下面这一版 16 条数组）
+[ {"number": "764.21亿元", "occurrence": 1, "verdict": "错误", "expected": "764.47亿元", "basis": "2023年年度报告，第14页，酒类收入76,447,093,245.62元"},
+  {"number": "12.9%", "occurrence": 1, "verdict": "错误", "expected": "13.15%", "basis": "……"} , … 共 16 条 ]
+
+等等，我需要重新检查一些数据。让我确认一下：
+1. 764.21亿元（酒类收入）：年报为764.47亿元，错误
+……
+现在让我生成最终的JSON数组。
+（随后重复一版同样的数组，直到 8,000 token 上限被截断）
+```
+
+四、A3 R0／R1／R2 的完整命令（按你的要求写在这里，A3 未开始）
+
+共用抽取缓存的做法：三组抽取请求体逐字相同（同 `--model`／`--url`／提示词），缓存键是请求体的 sha256，与 `--budget-usd`、缓存文件名无关；所以 R0 先跑一遍把 66 篇的抽取答案写进 `/test/Finagent/runs/t18_a3/r0/api_cache.jsonl`，R1／R2 各自把这份文件拷进自己的输出目录当种子，抽取即全部命中缓存（零新请求、零新花费），组间只差 Agent 模型。`summary.cache` 与 `cost_usd_by_model` 会分列两个缓存与两个模型的费用。
+
+```bash
+# 0) 起本地服务（R0 抽取用；R2 的复查与修订复用同一服务；与 A2 命令逐字相同，只改日志名）
+cd /root/Finagent && V=$PWD/.venv-serving && \
+PATH=$V/bin:$PATH CUDA_VISIBLE_DEVICES=0 \
+LD_LIBRARY_PATH=$V/lib/python3.12/site-packages/nvidia/cu13/lib \
+nohup setsid $V/bin/vllm serve \
+  /test/Finagent/models/Qwen3.5-9B/c202236235762e1c871ad0ccb60c8ee5ba337b9a \
+  --served-model-name qwen3.5-9b --host 127.0.0.1 --port 18090 \
+  --max-model-len 40960 --gpu-memory-utilization 0.90 --max-num-seqs 8 --enforce-eager \
+  --language-model-only --enable-lora --max-lora-rank 16 \
+  --lora-modules qwen3.5-9b-extract=/test/Finagent/runs/stage4_extract_v1/step_0072 \
+  --enable-auto-tool-choice --tool-call-parser qwen3_coder \
+  > /test/Finagent/tmp/t18_a3_server.log 2>&1 &
+
+# 1) 等服务就绪
+for i in $(seq 60); do
+  NO_PROXY=127.0.0.1,localhost curl -sf http://127.0.0.1:18090/v1/models && break; sleep 5
+done
+
+# 2) R0：9B LoRA 抽取＋核查，无工具 Agent（全本地基线；同时产出三组共用的抽取缓存）
+cd /root/Finagent && NO_PROXY=127.0.0.1,localhost no_proxy=127.0.0.1,localhost \
+.venv/bin/python -m src.evaluation.run_graph \
+  --library data/staged/library_v8/library.sqlite \
+  --reviews data/staged/eval_v2/development_reviews.jsonl \
+  --labels data/staged/eval_v2_labels/development_review_labels.jsonl \
+  --output-dir /test/Finagent/runs/t18_a3/r0 --budget-usd 0 \
+  --model qwen3.5-9b-extract --url http://127.0.0.1:18090/v1/chat/completions \
+  --no-investigate
+
+# 3) R1：抽取命中 R0 缓存（零新抽取请求）＋ flash 复查与修订
+mkdir -p /test/Finagent/runs/t18_a3/r1 && \
+cp /test/Finagent/runs/t18_a3/r0/api_cache.jsonl /test/Finagent/runs/t18_a3/r1/api_cache.jsonl
+cd /root/Finagent && NO_PROXY=127.0.0.1,localhost no_proxy=127.0.0.1,localhost \
+.venv/bin/python -m src.evaluation.run_graph \
+  --library data/staged/library_v8/library.sqlite \
+  --reviews data/staged/eval_v2/development_reviews.jsonl \
+  --labels data/staged/eval_v2_labels/development_review_labels.jsonl \
+  --output-dir /test/Finagent/runs/t18_a3/r1 --budget-usd 4.00 \
+  --model qwen3.5-9b-extract --url http://127.0.0.1:18090/v1/chat/completions \
+  --agent-model deepseek-flash --agent-url https://api.deepseek.com/chat/completions
+
+# 4) R2：抽取同样命中 R0 缓存＋本地 Qwen3.5-9B 基座复查与修订
+mkdir -p /test/Finagent/runs/t18_a3/r2 && \
+cp /test/Finagent/runs/t18_a3/r0/api_cache.jsonl /test/Finagent/runs/t18_a3/r2/api_cache.jsonl
+cd /root/Finagent && NO_PROXY=127.0.0.1,localhost no_proxy=127.0.0.1,localhost \
+.venv/bin/python -m src.evaluation.run_graph \
+  --library data/staged/library_v8/library.sqlite \
+  --reviews data/staged/eval_v2/development_reviews.jsonl \
+  --labels data/staged/eval_v2_labels/development_review_labels.jsonl \
+  --output-dir /test/Finagent/runs/t18_a3/r2 --budget-usd 0 \
+  --model qwen3.5-9b-extract --url http://127.0.0.1:18090/v1/chat/completions \
+  --agent-model qwen3.5-9b --agent-url http://127.0.0.1:18090/v1/chat/completions
+
+# 5) 收尾
+pkill -f "vllm serve"
+```
+
+- **R1 的 flash 预算与 `.env`**：`--budget-usd 4.00` 是本次**新请求**的上限（T16 开发集换新工具后实测 1.74 美元；T18 全任务 flash 合计上限 5 美元）。密钥不用 source：`ApiClient` 默认从仓库根的 `.env` 读 `DEEPSEEK_API_KEY`（权限 600、不进 Git），所以 R1 必须先 `cd /root/Finagent`。R1 只把 `127.0.0.1,localhost` 放进 `NO_PROXY`，`api.deepseek.com` 仍走机器代理。重跑时预算要按“缓存里已计的金额 ＋ 新上限”重设（缓存里的已花金额计入 `spent`）。
+- R0／R2 的 `--budget-usd 0` 可行：`qwen3.5-9b` 与 `qwen3.5-9b-extract` 都在 `src/model/api_client.py` 的 `LOCAL` 里、单价 0，且本地模型不检查预算。
+- 服务参数与 A2 相同（一次起得来，21,878 MiB）；但如果要压时长，可对三组分别用 `--shard i/n` 分片（每片一个输出目录，跑完整集时把各片缓存按行去重合并成 `api_cache.jsonl` 再整集重跑命中缓存，见 `run_graph` docstring 的 T16 做法）——分片只改并发与耗时、不改判据，是否采用等你定。
+
+**未完成或有疑问**
+
+1. A2 的第 2、3 条通过标准没过，且不属于你批准的两类重试情形（显存不足、工具调用解析为 0），所以我没有换 `qwen3_xml`／`hermes`、没有动 `--max-model-len`，停下等你定。可以确认的是：换解析器只影响工具调用解析（该项已通过），对“答案格式”这条大概率无用；与它直接相关的是复查提示词的收尾约束、或让 `parse()` 容忍代码围栏——前者属本任务禁止修改的范围。
+2. 一次冒烟只有 1 篇，且这篇的 Agent 答案整体落空，所以**不能**推断 66 篇的落空率；A3 判据里“复查答案无法解析的稿件 ≤ 3／66”正是为此设的，建议就用 A3 的 R2 去看它是否复现。
+3. R0 命令里没有 `--agent-model`，按现有代码 revise 会用抽取模型（`qwen3.5-9b-extract`）写修改建议，且这些请求写进同一个 `api_cache.jsonl`。这与任务里 R0 的写法一致，但意味着 `r0/api_cache.jsonl` 是“抽取＋修订”混在一起的文件（行按请求哈希区分，拷给 R1／R2 当种子仍然正确，也不影响计费口径）。若你要 R0 完全不跑修订，需要加一个开关，属新代码，等你决定。
+4. A3／A4 未开始；未提交、未推送、未装依赖、未调用付费 API（A2 全程本地、花费 0），既有 `runs/`、`artifacts/` 与 `library_v5`—`v8` 未改动。
 
 ### T17（已验收）
 
@@ -935,3 +1155,5 @@ Claude 在这里派工并记录验收；Codex 在这里领任务并回报。项�
 | 2026-10-15 | T15 “总”字近义误配 | 已验收 | 复核：规则收紧为“去掉‘总’后完全相同才判不匹配”的决定正确（避免误伤利润总额／利润）；开发集 0 改判、训练集 3、验收集 LoRA 10，方向均为交给人工；验收集 LoRA 非舍入放行 1→0；186 项测试通过。 |
 | 2026-10-15 | T16 复查 Agent 降本 | 已验收 | 复核：复查输入 token −47%、花费 −43%（每篇 0.060→0.035 美元）；判出 93.4%→95.4%、确认不变、非舍入放行 0、误报 11→14（新增均为舍入级）；188 项测试通过。HTTP 405 已由 Claude 在 `ApiClient` 中加入重试，不重跑该篇。architecture.md 由 Claude 更新。 |
 | 2026-10-15 | T17 附注声明的报表单位 v8 | 已验收 | 复核：新获单位 412 条全在比亚迪 2023，v7 已有单位的 459,848 条元组不变；跨年核对 77/80 一致，3 处为已披露重述；20 条人工核对值／列／单位全对；191 项测试通过。续表页 180 条无表题仍无单位，记为遗留。 |
+| 2026-10-16 | T18 A1 按节点指定模型 | 已验收 | 复核 diff：不给 Agent 模型时复用同一 `ApiChatModel`，请求体与缓存不变；我用新代码按 T16 缓存零花费重跑开发集，`summary` 除新增 `cache`／`cost_usd_by_model` 外逐项相同（唯一差异为 T16 那篇 405 失败的稿件无缓存、仍失败）；204 项测试通过。分缓存后预算各自起算的说明接受。 |
+| 2026-10-16 | T18 A2 本地服务冒烟 | 已验收（作管线冒烟） | 复核缓存：37 个 Agent 请求均为 `qwen3.5-9b`（修订也用基座，回报中“抽取模型做的修订”系笔误），工具调用全部解析；最终回合温度 0 下反复重发 JSON 至 8,000 token 截断。截断前第一版数组对照金标：14 个真错误标出 12 个、1 个正确数字误标（Agent 只能加报警，确认数不受影响）。管线可用，失败属模型行为，交 A3 判据衡量，不调解码。21 token/秒为单请求串行速率，A3 改为 8 片并行。 |

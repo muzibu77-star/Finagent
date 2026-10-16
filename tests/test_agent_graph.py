@@ -1,20 +1,23 @@
 """Tests for the LangGraph review graph: extract, check, investigate, revise, report."""
 
+import hashlib
 import json
 from pathlib import Path
 import sqlite3
 import tempfile
 import unittest
+from unittest import mock
 
 from langchain_core.language_models.fake_chat_models import FakeMessagesListChatModel
 from langchain_core.messages import AIMessage
 
 from src.agent.llm import ApiChatModel
-from src.agent.graph import (build_graph, handover, numbers_in, sentence_at,
+from src.agent.graph import (build_graph, handover, numbers_in, review_draft, sentence_at,
                              workpaper_markdown)
 from src.data.library import SCHEMA, digits
 from src.model.api_client import ApiClient
 from src.verify.checker import Checker
+from src.verify.extract import PROMPT, line_items
 
 
 def document(db, key, kind, year, published, code='600000'):
@@ -206,6 +209,140 @@ class InvestigateTest(unittest.TestCase):
         self.assertEqual(self.rows(paper)[47]['verdict'], 'unsupported')
         self.assertEqual(len(paper['errors']), 1)
         self.assertIn('unparsable investigate answer', paper['errors'][0])
+
+
+def library_file(directory: str) -> Path:
+    """The little ``build()`` library as a file, as ``review_draft`` opens it."""
+    path = Path(directory) / 'library.sqlite'
+    db = sqlite3.connect(path)
+    db.executescript(SCHEMA)
+    document(db, 'r2024', 'annual', 2024, '2025-03-30')
+    fact(db, 'r2024', '一、营业收入', '2024年度', '174,144,069,958.25')
+    fact(db, 'r2024', '一、营业收入', '2023年度', '150,560,330,316.45')
+    db.commit()
+    db.close()
+    return path
+
+
+DRAFT = {'text': TEXT, 'code': '600000', 'company': '某公司', 'fiscal_year': 2024,
+         'as_of': '2025-04-30'}
+
+
+class NodeModelTest(unittest.TestCase):
+    """The extraction model and the agent model are separate model objects."""
+
+    def paper(self, llm, agent_llm=None) -> dict:
+        state = build_graph(build(), llm, agent_llm=agent_llm).invoke(dict(DRAFT))
+        return state['workpaper']
+
+    def rows(self, paper: dict) -> dict[int, dict]:
+        return {row['start']: row for row in paper['numbers']}
+
+    def test_the_revision_node_answers_with_the_agent_model(self):
+        llm, agent_llm = Model(json.dumps(ITEMS, ensure_ascii=False)), Model(REVISION)
+        paper = self.paper(llm, agent_llm)
+        self.assertEqual((llm.calls, agent_llm.calls), (1, 1))
+        self.assertEqual(self.rows(paper)[9]['suggestion'],
+                         {'accepted': True, 'sentence': '2024年营业收入1,741.44亿元'})
+
+    def test_without_an_agent_model_every_node_uses_the_extraction_model(self):
+        llm = Model(json.dumps(ITEMS, ensure_ascii=False), REVISION)
+        paper = self.paper(llm)
+        self.assertEqual(llm.calls, 2)
+        self.assertEqual(self.rows(paper)[9]['suggestion']['accepted'], True)
+
+    def test_the_investigate_node_still_uses_the_stub_that_was_given(self):
+        fake = agent([{'number': '3.20', 'occurrence': 1, 'verdict': '错误', 'expected': '3.10'}])
+        state = build_graph(build(), Model(json.dumps(ITEMS, ensure_ascii=False), REVISION),
+                            investigator=fake).invoke(dict(DRAFT))
+        self.assertEqual(len(fake.calls), 1)
+        self.assertEqual(state['workpaper']['summary']['agent_flagged'], 1)
+
+
+class ReviewDraftModelTest(unittest.TestCase):
+    """One draft's model calls: which model, endpoint and cache each node uses."""
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.library = library_file(self.directory.name)
+        self.bodies: list[dict] = []
+
+    def tearDown(self):
+        self.directory.cleanup()
+
+    def send(self, body: dict) -> dict:
+        self.bodies.append(body)
+        answer = {'qwen3.5-9b-extract': json.dumps(ITEMS, ensure_ascii=False),
+                  'qwen3.5-9b': REVISION}[body['model']]
+        return {'usage': {'prompt_tokens': 1, 'completion_tokens': 1},
+                'choices': [{'message': {'content': answer}, 'finish_reason': 'stop'}]}
+
+    def patched(self):
+        """Review the draft through real clients whose transport is stubbed."""
+        def factory(model, budget, cache, url=None):
+            return ApiClient(model, budget, Path(cache), url=url, send=self.send)
+        return mock.patch('src.agent.graph.ApiClient', side_effect=factory)
+
+    def review(self, **kwargs) -> dict:
+        arguments = dict(library=self.library, model='qwen3.5-9b-extract',
+                         url='http://127.0.0.1:18090/v1/chat/completions', budget_usd=0.0,
+                         cache=Path(self.directory.name) / 'api_cache.jsonl', investigate=False)
+        arguments.update(kwargs)
+        return review_draft(dict(DRAFT), **arguments)
+
+    def test_a_run_without_an_agent_model_keeps_the_older_request_hashes(self):
+        extract = Path(self.directory.name) / 'api_cache.jsonl'
+        with self.patched():
+            paper = self.review()
+        self.assertEqual(len(self.bodies), 2)  # the extraction, then the revision
+        db = sqlite3.connect(self.library)
+        labels = line_items(db, '600000', 2024)
+        db.close()
+        body = {'model': 'qwen3.5-9b-extract', 'max_tokens': 8000, 'temperature': 0,
+                'chat_template_kwargs': {'enable_thinking': False},
+                'messages': [{'role': 'user', 'content': PROMPT.format(
+                    company='某公司', year=2024, labels='\n'.join(labels), review=TEXT)}]}
+        digest = hashlib.sha256(json.dumps(body, sort_keys=True, ensure_ascii=False)
+                                .encode()).hexdigest()
+        self.assertEqual(self.bodies[0], body)  # exactly the request the old code sent
+        self.assertEqual(sorted(path.name for path in Path(self.directory.name).iterdir()
+                                if path.name.startswith('api_cache')), ['api_cache.jsonl'])
+        self.assertIn(digest, [json.loads(line)['request_sha256']
+                               for line in extract.read_text().splitlines()])
+        self.assertEqual({json.loads(line)['model'] for line in extract.read_text().splitlines()},
+                         {'qwen3.5-9b-extract'})
+        self.assertEqual(paper['summary']['inconsistent'], 1)
+
+    def test_the_agent_model_keeps_its_own_cache(self):
+        directory = Path(self.directory.name)
+        agent_cache = directory / 'api_cache_qwen3.5-9b.jsonl'
+        with self.patched():
+            paper = self.review(agent_model='qwen3.5-9b',
+                                agent_url='http://127.0.0.1:18091/v1/chat/completions',
+                                agent_cache=agent_cache)
+        extract, agent = directory / 'api_cache.jsonl', agent_cache
+        self.assertEqual({json.loads(line)['model'] for line in extract.read_text().splitlines()},
+                         {'qwen3.5-9b-extract'})
+        self.assertEqual({json.loads(line)['model'] for line in agent.read_text().splitlines()},
+                         {'qwen3.5-9b'})
+        self.assertEqual(self.bodies[1]['model'], 'qwen3.5-9b')
+        self.assertEqual(paper['summary']['inconsistent'], 1)
+
+    def test_the_tool_agent_runs_on_the_agent_model_url_and_cache(self):
+        agent_cache = Path(self.directory.name) / 'api_cache_qwen3.5-9b.jsonl'
+        seen = {}
+
+        def fake_investigate(draft: dict, handed: list[dict], **kwargs) -> dict:
+            seen.update(kwargs)
+            return {'items': [], 'answer': ''}
+
+        with mock.patch('src.agent.graph.investigate_draft', fake_investigate), self.patched():
+            self.review(investigate=True, agent_model='qwen3.5-9b',
+                        agent_url='http://127.0.0.1:18091/v1/chat/completions',
+                        agent_cache=agent_cache)
+        self.assertEqual(seen['model'], 'qwen3.5-9b')
+        self.assertEqual(seen['url'], 'http://127.0.0.1:18091/v1/chat/completions')
+        self.assertEqual(seen['cache'], agent_cache)
 
 
 class Model:

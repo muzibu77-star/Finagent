@@ -242,12 +242,14 @@ def workpaper_markdown(workpaper: dict) -> str:
     return '\n'.join(lines) + '\n'
 
 
-def build_graph(checker: Checker, llm, *, investigator=None) -> CompiledStateGraph:
+def build_graph(checker: Checker, llm, *, agent_llm=None, investigator=None) -> CompiledStateGraph:
     """The review graph over ``ReviewState``.
 
     ``investigator`` is called as ``investigator(draft, handed)`` for the numbers
     the checker left to a person; ``None`` leaves its node out, so the graph is
     the four-node flow without the tool agent.
+    ``agent_llm`` answers the revision prompt; ``None`` uses ``llm``, so a run
+    that names no agent model sends every request with the same body as before.
     """
     db = checker.db
 
@@ -304,6 +306,7 @@ def build_graph(checker: Checker, llm, *, investigator=None) -> CompiledStateGra
 
     def revise(state: ReviewState) -> dict:
         suggestions, errors = {}, state.get('errors') or []
+        model = agent_llm if agent_llm is not None else llm
         for item in state['items']:
             number = str(item['number'])
             start = locate(state['text'], number, item.get('occurrence'))
@@ -313,7 +316,7 @@ def build_graph(checker: Checker, llm, *, investigator=None) -> CompiledStateGra
                 continue
             sentence = sentence_at(state['text'], start)
             try:
-                answer = llm.invoke([HumanMessage(content=REVISE.format(
+                answer = model.invoke([HumanMessage(content=REVISE.format(
                     number=number, expected=verdict['expected'], sentence=sentence))])
             except Exception as error:  # one failed rewrite leaves that number to a person
                 suggestions[start] = {'accepted': False, 'sentence': None, 'note': '需人工改写'}
@@ -345,20 +348,33 @@ def build_graph(checker: Checker, llm, *, investigator=None) -> CompiledStateGra
 
 
 def review_draft(draft: dict, *, library: Path, model: str, url: str, budget_usd: float,
-                 cache: Path, investigate: bool = True) -> dict:
+                 cache: Path, investigate: bool = True, agent_model: str | None = None,
+                 agent_url: str | None = None, agent_cache: Path | None = None) -> dict:
     """Run the review graph on one draft (``text``, ``code``, ``company``, ``fiscal_year``,
     ``as_of``) and return its workpaper.
 
     With ``investigate`` the tool agent re-opens the numbers the checker handed
     to a person; without it the graph is the four-node flow without the agent.
+    ``model`` extracts the numbers; the investigate and revision nodes use
+    ``agent_model`` on ``agent_url`` through ``agent_cache``, all of which
+    default to the extraction ones, so a run that names no agent model is
+    served, billed and cached exactly as before.
     """
     checker = Checker(sqlite3.connect(f'file:{library}?mode=ro', uri=True))
     llm = ApiChatModel(client=ApiClient(model, budget_usd, Path(cache), url=url))
+    agent_model = agent_model or model
+    agent_url = agent_url or url
+    agent_cache = Path(agent_cache) if agent_cache else Path(cache)
+    if agent_model == model and agent_url == url and agent_cache == Path(cache):
+        agent_llm = llm
+    else:
+        agent_llm = ApiChatModel(
+            client=ApiClient(agent_model, budget_usd, agent_cache, url=agent_url))
     investigator = None
     if investigate:
-        investigator = partial(investigate_draft, library=Path(library), model=model, url=url,
-                               budget_usd=budget_usd, cache=Path(cache))
-    state = build_graph(checker, llm, investigator=investigator).invoke(
+        investigator = partial(investigate_draft, library=Path(library), model=agent_model,
+                               url=agent_url, budget_usd=budget_usd, cache=agent_cache)
+    state = build_graph(checker, llm, agent_llm=agent_llm, investigator=investigator).invoke(
         {key: draft[key] for key in ('text', 'code', 'company', 'fiscal_year', 'as_of')})
     return state['workpaper']
 

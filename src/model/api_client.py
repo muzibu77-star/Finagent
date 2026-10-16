@@ -20,7 +20,8 @@ PRICES = {'deepseek-flash': {'input': 0.3, 'output': 1.2},
           'deepseek-v4-pro': {'input': 1.32, 'output': 3.96}}
 # Models served on this machine cost nothing per token.
 LOCAL = {'qwen3.5-9b': {'input': 0.0, 'output': 0.0},
-         'qwen3.5-9b-extract': {'input': 0.0, 'output': 0.0}}
+         'qwen3.5-9b-extract': {'input': 0.0, 'output': 0.0},
+         'qwen3.6-27b': {'input': 0.0, 'output': 0.0}}
 
 
 class BudgetExceeded(RuntimeError):
