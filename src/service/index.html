@@ -78,6 +78,18 @@
   .proc-row del { color: #a40e26; }
   .proc-row mark { background: #dafbe1; }
   .proc-row .meta { color: var(--muted); font-size: 12px; }
+  .proc-row { animation: row-in .35s ease-out; }
+  @keyframes row-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; } }
+  .proc-row.revise del { animation: strike .5s ease-out both; }
+  .proc-row.revise mark { animation: fade-in .6s .6s ease-out both; }
+  @keyframes strike { from { color: inherit; text-decoration-color: transparent; } }
+  @keyframes fade-in { from { opacity: 0; background: transparent; } }
+  .num { transition: background-color .45s ease, box-shadow .45s ease; }
+  .num.flash { box-shadow: 0 0 0 3px rgba(9, 105, 218, .35); }
+  .num .agentmark { display: inline-block; animation: pop .45s ease-out both; }
+  @keyframes pop { 0% { transform: scale(0); } 70% { transform: scale(1.35); }
+                   100% { transform: scale(1); } }
+  .stage-detail { transition: color .3s; }
   #flow-actions { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; }
   #flow-actions select { width: auto; }
   #flow-note { color: var(--muted); font-size: 12px; }
@@ -185,7 +197,7 @@
   <p id="flow-actions">
     <button class="plain" id="replay" type="button">回放流程</button>
     <label for="speed" style="font-weight:400">速度</label>
-    <select id="speed"><option value="1">1×</option><option value="2">2×</option></select>
+    <select id="speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option></select>
     <span id="flow-note"></span>
   </p>
 </div>
@@ -246,12 +258,12 @@ const ERRORS = {value: '数值不符', calculation: '计算有误', direction: '
                 digit: '数字笔误', scope: '口径不符', period: '期间不符'};
 const HANDOVER = ['unsupported', 'ambiguous', 'missed'];
 const NODES = ['extract', 'check', 'investigate', 'revise', 'report'];
-// Seconds each stage takes in a replay at 1x, whatever the run took: the run itself
-// spends most of its time extracting, while the agent's lookups are what a viewer
-// wants to watch, so the replay gives them the most time.  核查的每个数字之间留
-// 80 毫秒，和实跑时的节奏一致。
-const REPLAY_PACE = {extract: 10, check: 5, investigate: 15, revise: 6, report: 2};
-const CHECK_TICK = 80;
+// The process panel plays every step through one queue, live and in a replay alike,
+// so a burst of lookups or revisions that arrives at once is still shown one at a
+// time.  Milliseconds each kind of step stays on screen at 1x:
+const PACE = {item: 260, check: 220, tool: 800, agent: 1000, revise: 1800, stage: 1000};
+const TYPE_MS = 30;       // one tick of a replayed extraction typing its answer
+const TYPE_SECONDS = 35;  // a replayed extraction types its whole answer in about this long
 const ANSWERS = ['一致', '确有错误', '跳过'];
 const SCALES = {'元': 1, '千元': 1e3, '万元': 1e4, '百万元': 1e6, '千万元': 1e7,
                 '亿元': 1e8, '万亿元': 1e12};
@@ -700,7 +712,10 @@ function renderRunDraft(text) {
 
 function markNumber(start, className) {
   const span = document.querySelector(`#draft .num[data-start="${start}"]`);
-  if (span && className) span.classList.add(className);
+  if (span && className) {
+    span.classList.add(className, 'flash');
+    setTimeout(() => span.classList.remove('flash'), 700);
+  }
   return span;
 }
 
@@ -738,9 +753,7 @@ const process = {
     $('proc-head').innerHTML = '等待开始…';
     this.chars = 0;
     this.since = Date.now();
-    this.queue = [];
-    this.waiting = [];
-    this.pending = false;
+    this.counts = {};
     clearInterval(this.timer);
     this.timer = setInterval(() => this.clock(), 200);
   },
@@ -748,12 +761,6 @@ const process = {
   close() {
     clearInterval(this.timer);
     this.timer = null;
-    if (this.pending) { clearTimeout(this.pending); this.pending = false; }
-    // whatever is still queued is shown at once, so no stage is left unfinished
-    while (this.queue.length) this.check(this.queue.shift());
-    const waiting = this.waiting || [];
-    this.waiting = [];
-    for (const step of waiting) step();
     $('process').hidden = true;
     $('evidence').hidden = false;
     $('right').style.height = '';
@@ -809,6 +816,7 @@ const process = {
 
   item(event) {
     markNumber(event.start, 'extracted');
+    this.count('extract', (n) => `已抽出 ${n} 个数字`);
     const bits = [event.label || '未选到科目', event.year ? `${event.year}年` : '',
                   event.type || ''].filter(Boolean);
     this.row('item', `<b>${escapeHtml(event.number || '')}</b> ` +
@@ -817,37 +825,21 @@ const process = {
 
   check(event) {
     markNumber(event.start, event.verdict);
+    this.count('check', (n) => `已核查 ${n} 个数字`);
     const expected = event.expected ? `（原文值 ${escapeHtml(event.expected)}）` : '';
     this.row('check', `${escapeHtml(event.label || '')} ${escapeHtml(event.text)} → ` +
       `${escapeHtml(LABELS[event.verdict] || event.verdict)}${expected}`);
   },
 
-  // 实跑时核查很快，事件成串到达；逐条按 80 毫秒铺开，看得见每个数字变色。
-  queueCheck(event) {
-    this.queue.push(event);
-    if (!this.pending) this.pending = setTimeout(() => this.tick(), CHECK_TICK);
-  },
-
-  tick() {
-    const next = this.queue.shift();
-    this.pending = false;
-    if (next) this.check(next);
-    if (this.queue.length) {
-      this.pending = setTimeout(() => this.tick(), CHECK_TICK);
-      return;
-    }
-    const waiting = this.waiting || [];
-    this.waiting = [];
-    for (const step of waiting) step();
-  },
-
-  // Run ``step`` once the queued checker rows are laid out, at once when none are.
-  after(step) {
-    if (this.queue.length || this.pending) (this.waiting = this.waiting || []).push(step);
-    else step();
+  // The running count on the stage card, until the stage's own summary replaces it.
+  count(node, text) {
+    this.counts[node] = (this.counts[node] || 0) + 1;
+    const card = document.querySelector(`.stage[data-node="${node}"] .stage-detail`);
+    if (card) card.textContent = text(this.counts[node]);
   },
 
   tool(event) {
+    this.count('investigate', (n) => `工具调用 ${n} 次`);
     this.row('tool', `<code>${escapeHtml(event.name || '')}</code> ` +
       `<span class="meta">${escapeHtml(JSON.stringify(event.args || {}))}</span>` +
       `<div class="meta">${escapeHtml(event.result || '（这次调用没有结果）')}</div>`);
@@ -862,6 +854,7 @@ const process = {
   },
 
   revise(event) {
+    this.count('revise', (n) => `已改写 ${n} 条`);
     const verdict = event.accepted ? '✓ 通过' : '✗ 需人工改写';
     const after = event.rewritten
       ? `<div>${valueHtml(event.rewritten, event.expected || '')} ` +
@@ -872,91 +865,129 @@ const process = {
   },
 };
 
+// Every step of the panel goes through this queue and stays on screen for its pace,
+// so the steps a stage produces at once are still seen one after another.
+const player = {
+  queue: [],
+  busy: false,
+  idle: [],
+
+  push(run, wait) {
+    this.queue.push({run: run, wait: wait});
+    if (!this.busy) this.loop();
+  },
+
+  async loop() {
+    this.busy = true;
+    while (this.queue.length) {
+      const step = this.queue.shift();
+      step.run();
+      if (step.wait) await sleep(step.wait / (Number($('speed').value) || 1));
+    }
+    this.busy = false;
+    const idle = this.idle;
+    this.idle = [];
+    for (const resolve of idle) resolve();
+  },
+
+  // Resolves once every queued step has been shown.
+  drained() {
+    if (!this.busy && !this.queue.length) return Promise.resolve();
+    return new Promise((resolve) => this.idle.push(resolve));
+  },
+};
+
+function startStage(node) {
+  setStage(node, 'running');
+  process.head(node);
+}
+
 // One event of a running review: a node's summary, or one step inside a node.
 function applyEvent(event) {
   if (event.node) {
-    // the checker's rows are still being laid out one by one; the next stage's
-    // heading waits for them so every row stays under its own stage
-    process.after(() => {
+    player.push(() => {
       showEvent(event);
       const next = NODES[NODES.indexOf(event.node) + 1];
-      if (next) {
-        setStage(next, 'running');
-        process.head(next);
-      }
-    });
+      if (next) startStage(next);
+    }, PACE.stage);
     return;
   }
-  if (event.event === 'delta') process.delta(event);
-  else if (event.event === 'item') process.item(event);
-  else if (event.event === 'check') process.queueCheck(event);
-  else if (event.event === 'tool') process.tool(event);
-  else if (event.event === 'agent') process.agent(event);
-  else if (event.event === 'revise') process.revise(event);
+  if (event.event === 'delta') player.push(() => process.delta(event), 0);
+  else if (event.event === 'item') player.push(() => process.item(event), 0);
+  else if (event.event === 'check') player.push(() => process.check(event), PACE.check);
+  else if (event.event === 'tool') player.push(() => process.tool(event), PACE.tool);
+  else if (event.event === 'agent') player.push(() => process.agent(event), PACE.agent);
+  else if (event.event === 'revise') player.push(() => process.revise(event), PACE.revise);
 }
 
-// One stage of a replay: the entries its trace kept, at the pace of the replay.
-// A trace without entries - one written before the page knew this detail - falls
-// back to the card alone.
-async function replayStage(event, seconds) {
+// Where each top-level object of a JSON array answer ends, so a replay can show an
+// extracted entry the moment its object has been typed out.
+function objectEnds(raw) {
+  const ends = [];
+  let depth = 0, quoted = false, escaped = false;
+  for (let at = 0; at < raw.length; at += 1) {
+    const ch = raw[at];
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') quoted = false;
+    } else if (ch === '"') quoted = true;
+    else if (ch === '{') depth += 1;
+    else if (ch === '}' && --depth === 0) ends.push(at + 1);
+  }
+  return ends;
+}
+
+// One stage of a replay, queued the way a live run would have produced it.  A trace
+// without entries - one written before the page knew this detail - shows the card.
+function queueStage(event) {
   const detail = event.detail || {};
-  const items = detail.items || detail.numbers || [];
-  if (event.node === 'extract' && items.length) {
-    for (const item of items) {
-      process.item(item);
-      await sleep(seconds * 1000 / items.length);
+  const entries = detail.numbers || [];
+  if (event.node === 'extract') {
+    const items = detail.items || [];
+    // traces written before the raw answer was kept are retyped from their entries
+    const raw = detail.raw || (items.length ? JSON.stringify(items.map((item) =>
+      ({number: item.number, type: item.type, label: item.label, year: item.year})),
+      null, 1) : '');
+    const ends = objectEnds(raw);
+    const size = Math.max(1, Math.ceil(raw.length * TYPE_MS / (TYPE_SECONDS * 1000)));
+    let next = 0;
+    for (let at = 0; at < raw.length; at += size) {
+      const piece = raw.slice(at, at + size);
+      player.push(() => process.delta({text: piece}), TYPE_MS);
+      while (next < items.length && next < ends.length && ends[next] <= at + size) {
+        const item = items[next++];
+        player.push(() => process.item(item), 0);
+      }
     }
-    return;
+    for (const item of items.slice(next)) player.push(() => process.item(item), PACE.item);
+  } else if (event.node === 'check') {
+    for (const entry of entries) player.push(() => process.check(entry), PACE.check);
+  } else if (event.node === 'investigate') {
+    for (const call of detail.tools || []) player.push(() => process.tool(call), PACE.tool);
+    for (const entry of entries) player.push(() => process.agent(entry), PACE.agent);
+  } else if (event.node === 'revise') {
+    for (const entry of entries) player.push(() => process.revise(entry), PACE.revise);
   }
-  if (event.node === 'check' && items.length) {
-    const pause = Math.min(CHECK_TICK, seconds * 1000 / items.length);
-    for (const entry of items) {
-      process.check(entry);
-      await sleep(pause);
-    }
-    return;
-  }
-  if (event.node === 'investigate' && (detail.tools || []).length + items.length) {
-    const total = (detail.tools || []).length + items.length;
-    const pause = seconds * 1000 / total;
-    for (const call of detail.tools || []) {
-      process.tool(call);
-      await sleep(pause);
-    }
-    for (const entry of items) {
-      process.agent(entry);
-      await sleep(pause);
-    }
-    return;
-  }
-  if (event.node === 'revise' && items.length) {
-    for (const entry of items) {
-      process.revise(entry);
-      await sleep(seconds * 1000 / items.length);
-    }
-    return;
-  }
-  await sleep(seconds * 1000);
 }
 
 async function replay() {
   if (!paper || !(paper.trace || []).length) return;
   const trace = paper.trace;
-  const speed = Number($('speed').value);
   const button = $('replay');
   button.disabled = true;
   window.scrollTo({top: 0, behavior: 'smooth'});  // the band is at the top of the page
   buildFlow(trace.map((event) => event.node), paper && paper.models);
-  $('flow-note').textContent = '回放中：按记录的顺序重现，节奏经过压缩，不调用模型';
+  $('flow-note').textContent = '回放中：按记录的过程重现，不调用模型';
   renderDraft(paper.text, paper.numbers, true);  // the colours grow again as it replays
   process.open();
   try {
     for (const event of trace) {
-      setStage(event.node, 'running');
-      process.head(event.node);
-      await replayStage(event, (REPLAY_PACE[event.node] || 2) / speed);
-      showEvent(event);
+      player.push(() => startStage(event.node), 400);
+      queueStage(event);
+      player.push(() => showEvent(event), PACE.stage);
     }
+    await player.drained();
     $('flow-note').textContent = '回放完成（不调用模型）';
   } finally {
     process.close();
@@ -1030,6 +1061,7 @@ async function submit(event) {
   $('status').textContent = '正在核查，请稍候……';
   $('errors').style.display = 'none';
   $('summary').innerHTML = '';
+  paper = null;  // the band and the panel name the models of this run, not the last paper's
   $('new').open = false;  // the form folds away so the band and the process are in view
   window.scrollTo({top: 0});
   $('view').hidden = false;  // 运行时右栏显示过程，结束后切回证据视图
@@ -1038,8 +1070,7 @@ async function submit(event) {
   renderRunDraft($('text').value);
   process.open();
   buildFlow();
-  setStage(NODES[0], 'running');
-  process.head(NODES[0]);
+  startStage(NODES[0]);
   try {
     const response = await fetch('/api/review/stream', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -1068,6 +1099,7 @@ async function submit(event) {
       applyEvent(item);
     }
     if (!reviewId) return;
+    await player.drained();  // the panel finishes showing what the run did
     await loadPaper(reviewId);
     loadPapers();
   } catch (error) {

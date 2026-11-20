@@ -347,6 +347,8 @@ class ReviewEventsTest(unittest.TestCase):
                          ['1,745.44', '1,741.44', '3.20'])
         self.assertEqual([entry['label'] for entry in first['detail']['items']],
                          ['营业收入', '营业收入', '净利润'])
+        # the model's raw answer, which a replay types out again
+        self.assertEqual(first['detail']['raw'], json.dumps(ITEMS, ensure_ascii=False))
         self.assertEqual([entry['verdict'] for entry in second['detail']['numbers']],
                          ['inconsistent', 'consistent', 'unsupported'])
         self.assertEqual([entry['text'] for entry in third['detail']['numbers']], ['3.20亿元'])

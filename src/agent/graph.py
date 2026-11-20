@@ -93,6 +93,7 @@ class ReviewState(TypedDict):
     check_rows: list[dict]
     agent_rows: list[dict]
     revise_rows: list[dict]
+    extract_raw: str
 
 
 def plain(text: str) -> str:
@@ -426,12 +427,14 @@ def node_detail(node: str, state: ReviewState, earlier: dict) -> dict:
     Beside the card's counts, each event carries the entries the page replays:
     the claims of the extraction, the conclusion and candidates of every number
     the checker judged, the lookups and conclusions of the agent, and the
-    revisions.  The extraction keeps no raw model text, only its claims.
+    revisions.  The extraction also keeps the model's raw answer, so a replay
+    can type it out again as it was generated.
     """
     if node == 'extract':
         return {'extracted': len(state.get('items') or []),
                 'items': [extraction_entry(state['text'], item)
-                          for item in state.get('items') or []]}
+                          for item in state.get('items') or []],
+                'raw': state.get('extract_raw') or ''}
     if node == 'check':
         return {'conclusions': conclusion_counts(state.get('verdicts') or {}, state['text']),
                 'numbers': state.get('check_rows') or []}
@@ -507,7 +510,7 @@ def build_graph(checker: Checker, llm, *, agent_llm=None, investigator=None,
         if not items:
             return {'items': [],
                     'errors': note(state, f'unparsable extract answer: {answer[:200]!r}')}
-        return {'items': items}
+        return {'items': items, 'extract_raw': answer}
 
     def check(state: ReviewState) -> dict:
         verdicts = judge(checker, state['text'], state['items'], state['code'], state['as_of'])
